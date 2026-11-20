@@ -8,7 +8,8 @@ const SKIP_DIRS = new Set([
     '.git', '.hg', '.svn', 'venv', '.venv', 'env', 'node_modules', '__pycache__',
     'build', 'dist', '.tox', '.nox', '.mypy_cache', '.pytest_cache', '.ruff_cache',
     'site-packages', '.idea', '.vscode', 'target', 'bin', 'obj', '.gradle', 'out',
-    'coverage', 'Pods', 'vendor', '.next', '.nuxt'
+    'coverage', 'Pods', 'vendor', '.next', '.nuxt', '.dart_tool', '.fvm',
+    '.pub-cache', '.swiftpm', 'DerivedData', '.build', 'ephemeral'
 ]);
 
 const LANGS = {
@@ -18,7 +19,15 @@ const LANGS = {
     javascript: { exts: ['.js', '.jsx', '.mjs', '.cjs'], wasm: 'tree-sitter-javascript.wasm', family: 'js' },
     typescript: { exts: ['.ts', '.mts', '.cts'], wasm: 'tree-sitter-typescript.wasm', family: 'js' },
     tsx:        { exts: ['.tsx'], wasm: 'tree-sitter-tsx.wasm', family: 'js' },
-    cpp:        { exts: ['.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx', '.h'], wasm: 'tree-sitter-cpp.wasm', family: 'cpp' }
+    cpp:        { exts: ['.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx', '.h'], wasm: 'tree-sitter-cpp.wasm', family: 'cpp' },
+    c:          { exts: ['.c'], wasm: 'tree-sitter-c.wasm', family: 'c', group: 'cpp' },
+    dart:       { exts: ['.dart'], wasm: 'tree-sitter-dart.wasm', family: 'dart' },
+    php:        { exts: ['.php'], wasm: 'tree-sitter-php.wasm', family: 'php' },
+    kotlin:     { exts: ['.kt', '.kts'], wasm: 'tree-sitter-kotlin.wasm', family: 'kotlin' },
+    swift:      { exts: ['.swift'], wasm: 'tree-sitter-swift.wasm', family: 'swift' },
+    go:         { exts: ['.go'], wasm: 'tree-sitter-go.wasm', family: 'go' },
+    rust:       { exts: ['.rs'], wasm: 'tree-sitter-rust.wasm', family: 'rust' },
+    ruby:       { exts: ['.rb'], wasm: 'tree-sitter-ruby.wasm', family: 'ruby' }
 };
 
 const EXT_TO_LANG = {};
@@ -68,22 +77,94 @@ const FAM = {
         impl: new Set(),
         fields: new Set(['field_declaration']),
         iface: new Set()
+    },
+    c: {
+        classes: new Set(['struct_specifier']),
+        funcs: new Set(['function_definition']),
+        heritage: new Set(),
+        impl: new Set(),
+        fields: new Set(['field_declaration']),
+        iface: new Set()
+    },
+    dart: {
+        classes: new Set(['class_definition', 'mixin_declaration', 'enum_declaration', 'extension_declaration']),
+        funcs: new Set(['method_signature', 'function_signature']),
+        heritage: new Set(['superclass', 'interfaces', 'mixins', 'on_clause']),
+        impl: new Set(['interfaces', 'mixins']),
+        fields: new Set(['declaration']),
+        iface: new Set()
+    },
+    php: {
+        classes: new Set(['class_declaration', 'interface_declaration', 'trait_declaration', 'enum_declaration']),
+        funcs: new Set(['method_declaration', 'function_definition']),
+        heritage: new Set(['base_clause', 'class_interface_clause']),
+        impl: new Set(['class_interface_clause']),
+        fields: new Set(['property_declaration']),
+        iface: new Set(['interface_declaration'])
+    },
+    kotlin: {
+        classes: new Set(['class_declaration', 'object_declaration']),
+        funcs: new Set(['function_declaration', 'secondary_constructor']),
+        heritage: new Set(['delegation_specifier', 'delegation_specifiers']),
+        impl: new Set(),
+        fields: new Set(['property_declaration']),
+        iface: new Set()
+    },
+    swift: {
+        classes: new Set(['class_declaration', 'protocol_declaration']),
+        funcs: new Set(['function_declaration', 'init_declaration', 'deinit_declaration']),
+        heritage: new Set(['inheritance_specifier']),
+        impl: new Set(),
+        fields: new Set(['property_declaration']),
+        iface: new Set(['protocol_declaration'])
+    },
+    go: {
+        classes: new Set(['type_spec']),
+        funcs: new Set(['function_declaration', 'method_declaration']),
+        heritage: new Set(),
+        impl: new Set(),
+        fields: new Set(['field_declaration']),
+        iface: new Set(['interface_type'])
+    },
+    rust: {
+        classes: new Set(['struct_item', 'enum_item', 'trait_item']),
+        funcs: new Set(['function_item']),
+        heritage: new Set(),
+        impl: new Set(),
+        fields: new Set(['field_declaration']),
+        iface: new Set(['trait_item'])
+    },
+    ruby: {
+        classes: new Set(['class', 'module']),
+        funcs: new Set(['method', 'singleton_method']),
+        heritage: new Set(['superclass']),
+        impl: new Set(),
+        fields: new Set(),
+        iface: new Set(['module'])
     }
 };
 
-const TEST_FILE_RE = /(^test_|_test\.|\.test\.|\.spec\.|(Test|Tests|IT)\.(java|cs|cpp|cc|cxx)$|^conftest\.py$)/;
-const TEST_DIRS = new Set(['tests', 'test', '__tests__', 'spec', 'specs']);
+const GENERATED_SUFFIXES = [
+    '.d.ts', '.min.js', '.bundle.js',
+    '.g.dart', '.freezed.dart', '.gr.dart', '.mocks.dart',
+    '.pb.dart', '.pbenum.dart', '.pbjson.dart', '.pbserver.dart',
+    '.pb.go', '.generated.cs', '.designer.cs'
+];
+
+const TEST_FILE_RE = /(^test_|_test\.|_spec\.|\.test\.|\.spec\.|(Test|Tests|IT)\.(java|cs|cpp|cc|cxx|php|kt|kts|swift)$|^conftest\.py$)/;
+const TEST_DIRS = new Set(['tests', 'test', '__tests__', 'spec', 'specs', 'integration_test']);
 
 function langOf(filePath) {
     const low = filePath.toLowerCase();
-    if (low.endsWith('.d.ts') || low.endsWith('.min.js') || low.endsWith('.bundle.js')) {
-        return null;
+    for (const suf of GENERATED_SUFFIXES) {
+        if (low.endsWith(suf)) return null;
     }
     return EXT_TO_LANG[path.extname(low)] || null;
 }
 
 function groupOf(lang) {
-    return LANGS[lang] ? LANGS[lang].family : 'python';
+    if (!LANGS[lang]) return 'python';
+    return LANGS[lang].group || LANGS[lang].family;
 }
 
 function toPosix(p) {

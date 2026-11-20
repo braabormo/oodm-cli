@@ -7,27 +7,53 @@ const { LANGS, FAM, groupOf, toPosix } = require('./parsers');
 const LINE_LIMIT = 100;
 
 const DEC_TYPES = new Set([
-    'if_statement', 'elif_clause', 'for_statement', 'enhanced_for_statement',
-    'foreach_statement', 'for_in_statement', 'for_range_loop', 'while_statement',
-    'do_statement', 'catch_clause', 'except_clause', 'assert_statement',
-    'ternary_expression', 'conditional_expression', 'switch_block_statement_group',
-    'switch_rule', 'switch_section', 'switch_case', 'case_statement',
-    'switch_expression_arm', 'case_clause', 'for_in_clause', 'if_clause',
-    'boolean_operator'
+    'if_statement', 'elif_clause', 'else_if_clause', 'if_expression', 'if_element',
+    'for_statement', 'enhanced_for_statement', 'foreach_statement', 'for_in_statement',
+    'for_range_loop', 'for_expression', 'for_element', 'for_in_clause', 'if_clause',
+    'while_statement', 'while_expression', 'do_statement', 'do_while_statement',
+    'repeat_while_statement', 'loop_expression', 'guard_statement',
+    'catch_clause', 'catch_block', 'except_clause', 'rescue', 'assert_statement',
+    'ternary_expression', 'conditional_expression', 'conditional', 'elvis_expression',
+    'nil_coalescing_expression', 'if_null_expression',
+    'switch_block_statement_group', 'switch_rule', 'switch_section', 'switch_case',
+    'switch_statement_case', 'switch_entry', 'switch_expression_arm', 'case_statement',
+    'case_clause', 'when_entry', 'match_arm', 'match_conditional_expression',
+    'expression_case', 'type_case', 'communication_case',
+    'boolean_operator', 'conjunction_expression', 'disjunction_expression',
+    'logical_and_expression', 'logical_or_expression',
+    'if', 'elsif', 'unless', 'if_modifier', 'unless_modifier', 'for', 'while', 'until', 'when'
 ]);
 
 const DEFAULT_CASE_TYPES = new Set([
-    'switch_block_statement_group', 'switch_rule', 'switch_section', 'case_statement'
+    'switch_block_statement_group', 'switch_rule', 'switch_section',
+    'case_statement', 'switch_statement_case', 'switch_entry'
 ]);
 
 const CONTROL_TYPES = new Set([
-    'if_statement', 'for_statement', 'enhanced_for_statement', 'foreach_statement',
-    'for_in_statement', 'for_range_loop', 'while_statement', 'do_statement',
-    'try_statement', 'with_statement', 'switch_statement', 'switch_expression'
+    'if_statement', 'if_expression', 'guard_statement',
+    'for_statement', 'enhanced_for_statement', 'foreach_statement', 'for_in_statement',
+    'for_range_loop', 'for_expression', 'while_statement', 'while_expression',
+    'do_statement', 'do_while_statement', 'repeat_while_statement', 'loop_expression',
+    'try_statement', 'with_statement', 'switch_statement', 'switch_expression',
+    'when_expression', 'match_expression', 'if', 'unless', 'while', 'until', 'begin', 'case'
 ]);
 
 const FUNC_VALUE_TYPES = new Set(['arrow_function', 'function_expression', 'function']);
 const TYPE_ARG_NODES = new Set(['type_arguments', 'type_argument_list', 'template_argument_list']);
+const BODY_TYPES = new Set([
+    'class_body', 'enum_class_body', 'enum_body', 'extension_body', 'protocol_body',
+    'declaration_list', 'body_statement', 'function_body', 'block', 'compound_statement',
+    'field_declaration_list', 'statements'
+]);
+const NAME_NODE_TYPES = new Set([
+    'identifier', 'type_identifier', 'simple_identifier', 'name', 'constant', 'field_identifier'
+]);
+const DART_SIG_TYPES = new Set([
+    'function_signature', 'getter_signature', 'setter_signature',
+    'constructor_signature', 'constant_constructor_signature',
+    'factory_constructor_signature', 'redirecting_factory_constructor_signature',
+    'operator_signature'
+]);
 
 const PY_KEYWORDS = new Set([
     'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def',
@@ -39,9 +65,12 @@ const PY_KEYWORDS = new Set([
 const NAME_PY_FN = /^_{0,2}[a-z][a-z0-9_]*_?$|^_$/;
 const NAME_PY_ARG = /^_*[a-z][a-z0-9_]*$|^_$/;
 const NAME_CLS = /^_?[A-Z][A-Za-z0-9]*$/;
-const NAME_JAVA_FN = /^[a-z][A-Za-z0-9]*$/;
+const NAME_CAMEL_FN = /^_?[a-z][A-Za-z0-9]*$/;
 const NAME_CS_FN = /^[A-Z][A-Za-z0-9]*$/;
 const NAME_JS_FN = /^[#_$a-z][A-Za-z0-9_$]*$|^[A-Z][A-Za-z0-9]*$/;
+const NAME_PHP_FN = /^_{0,2}[a-z][A-Za-z0-9_]*$/;
+const NAME_RUST_FN = /^_?[a-z][a-z0-9_]*$/;
+const NAME_RUBY_FN = /^_?[a-z][a-z0-9_]*[?!=]?$/;
 const OK_PY_FN = new Set([
     'setUp', 'tearDown', 'setUpClass', 'tearDownClass', 'setUpModule',
     'tearDownModule', 'asyncSetUp', 'asyncTearDown', 'generic_visit', 'maxDiff'
@@ -49,6 +78,12 @@ const OK_PY_FN = new Set([
 
 // Safe bounded regexes (no catastrophic backtracking)
 const SECRET_RE = /\b[A-Za-z0-9_]{0,30}(?:passw(?:or)?d|passwd|secret|api_?key|token|private_?key)[A-Za-z0-9_]{0,30}\s*[:=]\s*[@$]?["'][^"'\r\n]{3,120}["']/i;
+
+const C_SEC_RULES = [
+    [/\b(?:gets|strcpy|strcat|sprintf|vsprintf)\s*\(/, 'high', 'unsafe C string function'],
+    [/\b(?:system|popen)\s*\(/, 'high', 'shell command execution'],
+    [/\bscanf\s*\(\s*"[^"\r\n]{0,120}%s/, 'high', 'unbounded scanf %s']
+];
 
 const SEC_RULES = {
     python: [
@@ -87,10 +122,51 @@ const SEC_RULES = {
         [/createHash\(\s*['"](?:md5|sha1)['"]/, 'high', 'weak hash algorithm'],
         [/rejectUnauthorized\s*:\s*false/, 'high', 'TLS validation disabled']
     ],
-    cpp: [
-        [/\b(?:gets|strcpy|strcat|sprintf|vsprintf)\s*\(/, 'high', 'unsafe C string function'],
-        [/\b(?:system|popen)\s*\(/, 'high', 'shell command execution'],
-        [/\bscanf\s*\(\s*"[^"\r\n]{0,120}%s/, 'high', 'unbounded scanf %s']
+    cpp: C_SEC_RULES,
+    c: C_SEC_RULES,
+    dart: [
+        [/Process\.run(?:Sync)?\s*\([^)\r\n]{0,200}runInShell\s*:\s*true/, 'high', 'shell command with runInShell: true'],
+        [/badCertificateCallback\s*=[^\r\n]{0,120}true/, 'high', 'TLS certificate validation disabled'],
+        [/\b(?:md5|sha1)\.convert\s*\(/, 'high', 'weak hash algorithm (md5/sha1)'],
+        [/\.(?:rawQuery|rawInsert|rawUpdate|rawDelete|execute)\s*\(\s*['"][^'"\r\n]{0,200}(?:\$|\+)/, 'high', 'possible SQL injection (interpolated query)']
+    ],
+    php: [
+        [/\b(?:eval|exec|shell_exec|system|passthru|proc_open|popen)\s*\(/, 'high', 'dangerous code/shell execution'],
+        [/\bunserialize\s*\(/, 'high', 'unsafe deserialization (unserialize)'],
+        [/\b(?:md5|sha1)\s*\(/, 'high', 'weak hash algorithm (md5/sha1)'],
+        [/(?:mysql_query|mysqli_query|->query|->exec)\s*\([^)\r\n]{0,160}\$/, 'high', 'possible SQL injection (variable in query)'],
+        [/CURLOPT_SSL_VERIFYPEER\s*,\s*(?:false|0)\b/i, 'high', 'TLS verification disabled']
+    ],
+    kotlin: [
+        [/Runtime\.getRuntime\(\)\s*\.exec\s*\(/, 'high', 'shell command via Runtime.exec'],
+        [/MessageDigest\.getInstance\(\s*"(?:md5|sha-?1)"/i, 'high', 'weak hash algorithm'],
+        [/\.(?:rawQuery|execSQL|executeQuery|executeUpdate)\s*\(\s*"[^"\r\n]{0,200}(?:\$|\+)/, 'high', 'possible SQL injection (interpolated query)'],
+        [/ObjectInputStream\s*\(/, 'high', 'unsafe deserialization (ObjectInputStream)']
+    ],
+    swift: [
+        [/\b(?:CC_MD5|CC_SHA1)\b|Insecure\.(?:MD5|SHA1)/, 'high', 'weak hash algorithm (MD5/SHA1)'],
+        [/NSAllowsArbitraryLoads/, 'medium', 'ATS arbitrary loads allowed'],
+        [/sqlite3_exec\s*\([^)\r\n]{0,160}\\\(/, 'high', 'possible SQL injection (string interpolation)'],
+        [/\bProcess\s*\(\s*\)/, 'medium', 'external process execution']
+    ],
+    go: [
+        [/\bexec\.Command\s*\(/, 'medium', 'external command execution (exec.Command)'],
+        [/\b(?:md5|sha1)\.(?:New|Sum)\s*\(/, 'high', 'weak hash algorithm (md5/sha1)'],
+        [/InsecureSkipVerify\s*:\s*true/, 'high', 'TLS verification disabled (InsecureSkipVerify)'],
+        [/\.(?:Query|Exec|QueryRow)\s*\(\s*(?:fmt\.Sprintf|"[^"\r\n]{0,200}"\s*\+)/, 'high', 'possible SQL injection (string-built query)']
+    ],
+    rust: [
+        [/\bunsafe\s*\{/, 'medium', 'unsafe Rust block'],
+        [/Command::new\s*\(/, 'medium', 'external process execution'],
+        [/danger_accept_invalid_certs\s*\(\s*true\s*\)/, 'high', 'TLS verification disabled'],
+        [/\b(?:Md5|Sha1)::/, 'high', 'weak hash algorithm (MD5/SHA1)']
+    ],
+    ruby: [
+        [/\b(?:eval|instance_eval|class_eval|module_eval)\s*(?:\(|\s)/, 'high', 'dynamic code execution (eval)'],
+        [/\b(?:system|exec)\s*\(|%x\[/, 'high', 'shell command execution'],
+        [/\b(?:Marshal\.load|YAML\.load)\b/, 'high', 'unsafe deserialization'],
+        [/Digest::(?:MD5|SHA1)/, 'high', 'weak hash algorithm (MD5/SHA1)'],
+        [/VERIFY_NONE/, 'high', 'TLS verification disabled']
     ]
 };
 
@@ -107,7 +183,9 @@ function identLeaves(node, skip = TYPE_ARG_NODES) {
         const n = stack.pop();
         if (skip && skip.has(n.type)) continue;
         if (n.childCount === 0) {
-            if (n.type.endsWith('identifier')) out.push(n.text);
+            if (n.type.endsWith('identifier') || n.type === 'name' || n.type === 'constant') {
+                out.push(n.text);
+            }
         } else {
             for (let i = n.childCount - 1; i >= 0; i--) {
                 stack.push(n.child(i));
@@ -115,6 +193,62 @@ function identLeaves(node, skip = TYPE_ARG_NODES) {
         }
     }
     return out;
+}
+
+function firstChildOfTypes(n, types) {
+    for (let i = 0; i < n.namedChildCount; i++) {
+        const c = n.namedChild(i);
+        if (types.has(c.type)) return c;
+    }
+    return null;
+}
+
+function nodeName(n, family) {
+    if (!n) return null;
+    if (family === 'cpp' || family === 'c') {
+        let d = n.childForFieldName('declarator');
+        while (d && (d.type === 'function_declarator' || d.type === 'pointer_declarator' ||
+            d.type === 'reference_declarator' || d.type === 'parenthesized_declarator')) {
+            const nxt = d.childForFieldName('declarator');
+            if (!nxt) break;
+            d = nxt;
+        }
+        if (d) return d.text;
+    }
+    if (family === 'dart') {
+        const nm = dartSigName(n);
+        if (nm) return nm;
+    }
+    const f = n.childForFieldName('name') || n.childForFieldName('property');
+    if (f) return f.text;
+    const ch = firstChildOfTypes(n, NAME_NODE_TYPES);
+    return ch ? ch.text : null;
+}
+
+function nodeBody(n) {
+    if (!n) return null;
+    return n.childForFieldName('body') || firstChildOfTypes(n, BODY_TYPES);
+}
+
+function dartSigName(n) {
+    if (!n) return null;
+    if (n.type === 'method_signature') {
+        for (let i = 0; i < n.namedChildCount; i++) {
+            const c = n.namedChild(i);
+            if (DART_SIG_TYPES.has(c.type)) return dartSigName(c);
+        }
+    }
+    if (DART_SIG_TYPES.has(n.type)) {
+        const nm = n.childForFieldName('name');
+        if (nm) return nm.text;
+        const ids = [];
+        for (let i = 0; i < n.namedChildCount; i++) {
+            const c = n.namedChild(i);
+            if (c.type === 'identifier') ids.push(c.text);
+        }
+        if (ids.length > 0) return ids[0];
+    }
+    return null;
 }
 
 function pyBaseName(n) {
@@ -147,9 +281,12 @@ function heritage(cnode, fam, family) {
     function walk(n, inImpl) {
         if (TYPE_ARG_NODES.has(n.type)) return;
         if (n.childCount === 0) {
-            if (n.type.endsWith('identifier')) {
-                bases.push(n.text);
-                if (inImpl) impls.add(n.text);
+            if (n.type.endsWith('identifier') || n.type === 'name' || n.type === 'constant') {
+                const txt = n.text;
+                if (txt !== 'extends' && txt !== 'implements' && txt !== 'with' && txt !== 'on') {
+                    bases.push(txt);
+                    if (inImpl) impls.add(txt);
+                }
             }
             return;
         }
@@ -173,22 +310,10 @@ function heritage(cnode, fam, family) {
     return { bases: [...new Set(bases)], impls };
 }
 
-function funcName(n, family) {
-    if (family === 'cpp') {
-        let d = n.childForFieldName('declarator');
-        while (d && (d.type === 'function_declarator' || d.type === 'pointer_declarator' ||
-            d.type === 'reference_declarator' || d.type === 'parenthesized_declarator')) {
-            const nxt = d.childForFieldName('declarator');
-            if (!nxt) break;
-            d = nxt;
-        }
-        return d ? d.text : null;
-    }
-    const nm = n.childForFieldName('name') || n.childForFieldName('property');
-    return nm ? nm.text : null;
-}
-
-function isStatic(n) {
+function isStatic(n, family) {
+    if (family === 'ruby' && n.type === 'singleton_method') return true;
+    const head = n.text.slice(0, 80).split('{')[0].split('(')[0];
+    if (/\bstatic\b/.test(head)) return true;
     for (let i = 0; i < n.childCount; i++) {
         const c = n.child(i);
         if (c.type === 'static' || ((c.type === 'modifiers' || c.type === 'modifier' || c.type === 'storage_class_specifier') && c.text.includes('static'))) {
@@ -221,6 +346,39 @@ function fieldNames(n, family) {
     } else if (family === 'js') {
         const nm = n.childForFieldName('property') || n.childForFieldName('name');
         if (nm) out.add(nm.text);
+    } else if (family === 'php') {
+        const stack = [n];
+        while (stack.length > 0) {
+            const x = stack.pop();
+            if (x.type === 'variable_name') {
+                const nm = x.text.replace(/^\$/, '');
+                if (nm) out.add(nm);
+            } else {
+                for (let i = x.childCount - 1; i >= 0; i--) stack.push(x.child(i));
+            }
+        }
+    } else if (family === 'dart') {
+        const stack = [n];
+        while (stack.length > 0) {
+            const x = stack.pop();
+            if (x.type === 'initialized_identifier' || x.type === 'static_final_declaration') {
+                const id = firstChildOfTypes(x, new Set(['identifier']));
+                if (id) out.add(id.text);
+            } else if (!DART_SIG_TYPES.has(x.type) && x.type !== 'function_body') {
+                for (let i = x.childCount - 1; i >= 0; i--) stack.push(x.child(i));
+            }
+        }
+    } else if (family === 'kotlin' || family === 'swift') {
+        const nm = n.childForFieldName('name') || firstChildOfTypes(n, new Set(['simple_identifier', 'identifier', 'pattern', 'variable_declaration']));
+        if (nm) {
+            const ids = identLeaves(nm, TYPE_ARG_NODES);
+            if (ids.length) out.add(ids[0]);
+        }
+    } else if (family === 'go' || family === 'rust') {
+        for (let i = 0; i < n.namedChildCount; i++) {
+            const c = n.namedChild(i);
+            if (c.type === 'field_identifier') out.add(c.text);
+        }
     } else {
         const stack = [n];
         while (stack.length > 0) {
@@ -254,10 +412,11 @@ function thisAssigned(body) {
 }
 
 function usedFields(mnode, fields) {
-    if (!fields || fields.size === 0) return new Set();
+    if (!mnode || !fields || fields.size === 0) return new Set();
     const out = new Set();
     for (const t of identLeaves(mnode, null)) {
-        if (fields.has(t)) out.add(t);
+        const clean = t.replace(/^[@$]/, '');
+        if (fields.has(clean)) out.add(clean);
     }
     return out;
 }
@@ -266,6 +425,7 @@ function scanClass(cnode, family) {
     const refs = new Set();
     const calls = new Set();
     const stack = [cnode];
+
     while (stack.length > 0) {
         const x = stack.pop();
         if (family === 'python') {
@@ -290,21 +450,28 @@ function scanClass(cnode, family) {
 
         if (x.childCount === 0) {
             const txt = x.text;
-            if (x.type === 'type_identifier' || x.type === 'namespace_identifier' ||
-                (x.type.endsWith('identifier') && txt.length > 0 && txt[0] >= 'A' && txt[0] <= 'Z')) {
+            if (x.type === 'type_identifier' || x.type === 'namespace_identifier' || x.type === 'constant' ||
+                ((x.type.endsWith('identifier') || x.type === 'name') && txt.length > 0 && txt[0] >= 'A' && txt[0] <= 'Z')) {
                 refs.add(txt);
             }
             continue;
         }
+
         const t = x.type;
-        if (t === 'method_invocation') {
+        if (t === 'method_invocation' || t === 'member_call_expression' || t === 'nullsafe_member_call_expression' || t === 'scoped_call_expression') {
             const nm = x.childForFieldName('name');
             if (nm) calls.add(nm.text);
-        } else if (t === 'invocation_expression' || t === 'call_expression') {
-            const f = x.childForFieldName('function');
+        } else if (t === 'invocation_expression' || t === 'call_expression' || t === 'function_call_expression' || t === 'call') {
+            const f = x.childForFieldName('function') || x.childForFieldName('method') || x.namedChild(0);
             if (f) {
                 const ids = identLeaves(f, null);
                 if (ids.length > 0) calls.add(ids[ids.length - 1]);
+            }
+        } else if (family === 'dart' && t === 'selector') {
+            const nm = firstChildOfTypes(x, new Set(['unconditional_assignable_selector', 'conditional_assignable_selector']));
+            if (nm) {
+                const id = firstChildOfTypes(nm, new Set(['identifier']));
+                if (id) calls.add(id.text);
             }
         }
         for (let i = x.childCount - 1; i >= 0; i--) stack.push(x.child(i));
@@ -314,7 +481,9 @@ function scanClass(cnode, family) {
 
 function ctorAlias(mname, nodeType, className) {
     if (nodeType === 'constructor_declaration' || nodeType === 'destructor_declaration' ||
-        mname === 'constructor' || mname === className || mname.startsWith('~')) {
+        nodeType === 'secondary_constructor' || nodeType === 'init_declaration' || nodeType === 'deinit_declaration' ||
+        mname === 'constructor' || mname === '__construct' || mname === 'initialize' || mname === 'init' ||
+        mname === className || mname.startsWith('~')) {
         return '__init__';
     }
     return mname;
@@ -324,39 +493,120 @@ function extractClassesFromTree(root, rel, lang) {
     const family = LANGS[lang].family;
     const fam = FAM[family];
     const classes = [];
-    const pendingCpp = [];
+    const pendingMethods = [];
     const stack = [root];
 
     while (stack.length > 0) {
         const n = stack.pop();
         for (let i = n.childCount - 1; i >= 0; i--) stack.push(n.child(i));
 
+        // Out-of-class method attachment for C++, Go, and Rust
         if (family === 'cpp' && n.type === 'function_definition') {
-            const full = funcName(n, 'cpp') || '';
+            const full = nodeName(n, 'cpp') || '';
             if (full.includes('::')) {
                 const parts = full.split('::');
                 const scope = parts[parts.length - 2];
                 const mn = ctorAlias(parts[parts.length - 1], n.type, scope);
-                pendingCpp.push({
-                    scope,
-                    mname: mn,
-                    usedIdents: new Set(identLeaves(n, null))
-                });
+                const { refs, calls } = scanClass(n, 'cpp');
+                pendingMethods.push({ scope, mname: mn, usedIdents: new Set(identLeaves(n, null)), refs, calls });
+            }
+        } else if (family === 'go' && n.type === 'method_declaration') {
+            const recv = n.childForFieldName('receiver');
+            const mn = nodeName(n, 'go');
+            if (recv && mn) {
+                const typeIds = [];
+                const rstack = [recv];
+                while (rstack.length) {
+                    const x = rstack.pop();
+                    if (x.type === 'type_identifier') typeIds.push(x.text);
+                    else for (let i = x.childCount - 1; i >= 0; i--) rstack.push(x.child(i));
+                }
+                if (typeIds.length) {
+                    const { refs, calls } = scanClass(n, 'go');
+                    pendingMethods.push({ scope: typeIds[0], mname: mn, usedIdents: new Set(identLeaves(n, null)), refs, calls });
+                }
+            }
+        } else if (family === 'rust' && n.type === 'impl_item') {
+            const typeNode = n.childForFieldName('type');
+            const traitNode = n.childForFieldName('trait');
+            const implBody = nodeBody(n);
+            if (typeNode && implBody) {
+                const typeIds = identLeaves(typeNode, TYPE_ARG_NODES);
+                const scope = typeIds[typeIds.length - 1];
+                const traitIds = traitNode ? identLeaves(traitNode, TYPE_ARG_NODES) : [];
+                const traitName = traitIds.length ? traitIds[traitIds.length - 1] : null;
+                const { refs, calls } = scanClass(n, 'rust');
+                if (scope) {
+                    for (let i = 0; i < implBody.namedChildCount; i++) {
+                        const ch = implBody.namedChild(i);
+                        if (ch.type === 'function_item') {
+                            const mn = nodeName(ch, 'rust');
+                            if (mn) {
+                                pendingMethods.push({
+                                    scope, mname: mn, traitName,
+                                    usedIdents: new Set(identLeaves(ch, null)), refs, calls
+                                });
+                            }
+                        }
+                    }
+                    if (traitName) {
+                        pendingMethods.push({ scope, mname: null, traitName, usedIdents: new Set(), refs, calls });
+                    }
+                }
             }
         }
 
         if (!fam.classes.has(n.type)) continue;
-        const body = n.childForFieldName('body');
-        const nm = n.childForFieldName('name');
-        if (!body || !nm) continue;
 
-        const name = nm.text;
+        // Go: only struct_type and interface_type type_specs represent classes/interfaces
+        if (family === 'go') {
+            const tNode = n.childForFieldName('type');
+            if (!tNode || (tNode.type !== 'struct_type' && tNode.type !== 'interface_type')) continue;
+            const nm = n.childForFieldName('name');
+            if (!nm) continue;
+            const name = nm.text;
+            const isIface = tNode.type === 'interface_type';
+            const fields = new Set();
+            const methods = new Set();
+            const bases = [];
+            const bstack = [tNode];
+            while (bstack.length) {
+                const x = bstack.pop();
+                if (x.type === 'field_declaration') {
+                    const fids = fieldNames(x, 'go');
+                    if (fids.size > 0) {
+                        for (const f of fids) fields.add(f);
+                    } else {
+                        // Embedded struct/interface acts like base
+                        for (const id of identLeaves(x, TYPE_ARG_NODES)) bases.push(id);
+                    }
+                } else if (x.type === 'method_spec') {
+                    const mn = x.childForFieldName('name');
+                    if (mn) methods.add(mn.text);
+                } else {
+                    for (let i = x.childCount - 1; i >= 0; i--) bstack.push(x.child(i));
+                }
+            }
+            const { refs, calls } = scanClass(n, 'go');
+            classes.push({
+                name, rel, line: n.startPosition.row + 1, bases: [...new Set(bases)],
+                methods: [...methods], mfields: new Map(), allFields: fields, refs, calls,
+                statics: new Set(), impls: new Set(), isInterface: isIface, group: groupOf(lang), key: ''
+            });
+            continue;
+        }
+
+        const body = nodeBody(n);
+        const name = nodeName(n, family);
+        if (!body || !name) continue;
+
         const { bases, impls } = heritage(n, fam, family);
         const methods = new Set();
         const methodNodes = new Map();
         const statics = new Set();
         const fields = new Set();
 
+        // Python
         if (family === 'python') {
             const classLevel = new Set();
             for (let i = 0; i < body.namedChildCount; i++) {
@@ -372,7 +622,7 @@ function extractClassesFromTree(root, rel, lang) {
                     ch = defNode;
                 }
                 if (ch.type === 'function_definition') {
-                    const mn = funcName(ch, 'python');
+                    const mn = nodeName(ch, 'python');
                     if (mn) {
                         methods.add(mn);
                         methodNodes.set(mn, ch);
@@ -409,33 +659,141 @@ function extractClassesFromTree(root, rel, lang) {
             classes.push({
                 name, rel, line: n.startPosition.row + 1, bases,
                 methods: [...methods], mfields, allFields: fields, refs, calls,
-                statics, impls, isInterface: false, group: family, key: ''
+                statics, impls, isInterface: false, group: groupOf(lang), key: ''
             });
             continue;
+        }
+
+        // Dart / Flutter (methods are signature + sibling function_body)
+        if (family === 'dart') {
+            for (let i = 0; i < body.namedChildCount; i++) {
+                const ch = body.namedChild(i);
+                const t = ch.type;
+                if (t === 'method_signature') {
+                    let mn = dartSigName(ch);
+                    if (mn) {
+                        mn = ctorAlias(mn, t, name);
+                        methods.add(mn);
+                        const next = ch.nextNamedSibling;
+                        methodNodes.set(mn, next && next.type === 'function_body' ? next : ch);
+                        if (isStatic(ch, 'dart')) statics.add(mn);
+                    }
+                } else if (t === 'declaration') {
+                    const sig = firstChildOfTypes(ch, DART_SIG_TYPES);
+                    if (sig) {
+                        let mn = dartSigName(sig);
+                        if (mn) {
+                            mn = ctorAlias(mn, sig.type, name);
+                            methods.add(mn);
+                            methodNodes.set(mn, ch);
+                            if (isStatic(ch, 'dart')) statics.add(mn);
+                        }
+                    } else {
+                        for (const f of fieldNames(ch, 'dart')) fields.add(f);
+                    }
+                }
+            }
+            const mfields = new Map();
+            for (const [mname, mnode] of methodNodes.entries()) {
+                mfields.set(mname, usedFields(mnode, fields));
+            }
+            const head = n.text.slice(0, 60);
+            const isIface = /\babstract\s+interface\s+class\b|\binterface\s+class\b/.test(head);
+            const { refs, calls } = scanClass(n, 'dart');
+            classes.push({
+                name, rel, line: n.startPosition.row + 1, bases,
+                methods: [...methods], mfields, allFields: fields, refs, calls,
+                statics, impls, isInterface: isIface, group: groupOf(lang), key: ''
+            });
+            continue;
+        }
+
+        // Ruby (instance variables @foo + include/extend mixins)
+        if (family === 'ruby') {
+            for (let i = 0; i < body.namedChildCount; i++) {
+                const ch = body.namedChild(i);
+                if (ch.type === 'method' || ch.type === 'singleton_method') {
+                    let mn = nodeName(ch, 'ruby');
+                    if (mn) {
+                        mn = ctorAlias(mn, ch.type, name);
+                        methods.add(mn);
+                        methodNodes.set(mn, ch);
+                        if (ch.type === 'singleton_method') statics.add(mn);
+                    }
+                } else if (ch.type === 'call') {
+                    const m = ch.childForFieldName('method')?.text;
+                    if (m === 'include' || m === 'extend' || m === 'prepend') {
+                        const args = ch.childForFieldName('arguments');
+                        if (args) {
+                            for (const id of identLeaves(args, TYPE_ARG_NODES)) {
+                                bases.push(id);
+                                impls.add(id);
+                            }
+                        }
+                    }
+                }
+            }
+            const mfields = new Map();
+            for (const [mname, mnode] of methodNodes.entries()) {
+                const fsSet = new Set();
+                const mstack = [mnode];
+                while (mstack.length) {
+                    const x = mstack.pop();
+                    if (x.type === 'instance_variable') fsSet.add(x.text.replace(/^@/, ''));
+                    for (let i = x.childCount - 1; i >= 0; i--) mstack.push(x.child(i));
+                }
+                mfields.set(mname, fsSet);
+                for (const f of fsSet) fields.add(f);
+            }
+            const { refs, calls } = scanClass(n, 'ruby');
+            classes.push({
+                name, rel, line: n.startPosition.row + 1, bases: [...new Set(bases)],
+                methods: [...methods], mfields, allFields: fields, refs, calls,
+                statics, impls, isInterface: n.type === 'module', group: groupOf(lang), key: ''
+            });
+            continue;
+        }
+
+        // Java, C#, JS/TS, C++, C, PHP, Kotlin, Swift, Rust
+        if (family === 'kotlin') {
+            // Primary constructor val/var properties
+            const pctor = firstChildOfTypes(n, new Set(['primary_constructor']));
+            if (pctor) {
+                const pstack = [pctor];
+                while (pstack.length) {
+                    const x = pstack.pop();
+                    if (x.type === 'class_parameter' && /\b(?:val|var)\b/.test(x.text)) {
+                        const id = firstChildOfTypes(x, new Set(['simple_identifier', 'identifier']));
+                        if (id) fields.add(id.text);
+                    } else {
+                        for (let i = x.childCount - 1; i >= 0; i--) pstack.push(x.child(i));
+                    }
+                }
+            }
         }
 
         for (let i = 0; i < body.childCount; i++) {
             const ch = body.child(i);
             const t = ch.type;
             if (fam.funcs.has(t) || (family === 'js' && (t === 'method_signature' || t === 'abstract_method_signature'))) {
-                let mn = funcName(ch, family);
+                let mn = nodeName(ch, family);
                 if (mn) {
                     mn = ctorAlias(mn.split('::').pop(), t, name);
                     methods.add(mn);
                     methodNodes.set(mn, ch);
-                    if (isStatic(ch)) statics.add(mn);
+                    if (isStatic(ch, family)) statics.add(mn);
                 }
             } else if (fam.fields.has(t)) {
                 const value = ch.childForFieldName('value');
                 const decl = ch.childForFieldName('declarator');
                 if (family === 'js' && value && FUNC_VALUE_TYPES.has(value.type)) {
-                    const mn = funcName(ch, family);
+                    const mn = nodeName(ch, family);
                     if (mn) {
                         methods.add(mn);
                         methodNodes.set(mn, ch);
                     }
                 } else if (family === 'cpp' && decl && decl.type === 'function_declarator') {
-                    let mn = funcName(ch, family);
+                    let mn = nodeName(ch, family);
                     if (mn) {
                         mn = ctorAlias(mn.split('::').pop(), t, name);
                         if (!methods.has(mn)) {
@@ -472,22 +830,33 @@ function extractClassesFromTree(root, rel, lang) {
         for (const [mname, mnode] of methodNodes.entries()) {
             mfields.set(mname, usedFields(mnode, fields));
         }
+        const isIface = fam.iface.has(n.type) ||
+            (family === 'kotlin' && /^\s*(?:[a-z]+\s+)*interface\b/.test(n.text.slice(0, 60)));
         const { refs, calls } = scanClass(n, family);
         classes.push({
             name, rel, line: n.startPosition.row + 1, bases,
             methods: [...methods], mfields, allFields: fields, refs, calls,
-            statics, impls, isInterface: fam.iface.has(n.type), group: family, key: ''
+            statics, impls, isInterface: isIface, group: groupOf(lang), key: ''
         });
     }
 
-    return { classes, pendingCpp };
+    return { classes, pendingMethods };
 }
 
-function countedFunctionName(n, fam, family) {
+function countedFunctionInfo(n, fam, family) {
     const t = n.type;
+    if (family === 'dart') {
+        if (t === 'method_signature' || (t === 'function_signature' && n.parent?.type !== 'method_signature')) {
+            const body = n.nextNamedSibling;
+            if (!body || body.type !== 'function_body') return null;
+            return { name: dartSigName(n) || '<anonymous>', body, endRow: body.endPosition.row };
+        }
+        return null;
+    }
     if (fam.funcs.has(t)) {
-        if (!n.childForFieldName('body')) return null;
-        return funcName(n, family) || '<anonymous>';
+        const body = nodeBody(n);
+        if (!body) return null;
+        return { name: nodeName(n, family) || '<anonymous>', body, endRow: n.endPosition.row };
     }
     if (family === 'js' && FUNC_VALUE_TYPES.has(t)) {
         const p = n.parent;
@@ -495,7 +864,7 @@ function countedFunctionName(n, fam, family) {
             p.type === 'public_field_definition' || p.type === 'pair' || p.type === 'assignment_expression')) {
             const nm = p.childForFieldName('name') || p.childForFieldName('property') ||
                 p.childForFieldName('key') || p.childForFieldName('left');
-            return nm ? nm.text : '<anonymous>';
+            return { name: nm ? nm.text : '<anonymous>', body: n, endRow: n.endPosition.row };
         }
     }
     return null;
@@ -506,26 +875,34 @@ function enclosingPrefix(n, fam, family) {
     let p = n.parent;
     while (p) {
         if (fam.classes.has(p.type)) {
-            const nm = p.childForFieldName('name');
-            if (nm) parts.push(nm.text);
+            const nm = nodeName(p, family);
+            if (nm) parts.push(nm);
             if (family !== 'python') break;
+        } else if (family === 'rust' && p.type === 'impl_item') {
+            const tNode = p.childForFieldName('type');
+            if (tNode) {
+                const ids = identLeaves(tNode, TYPE_ARG_NODES);
+                if (ids.length) parts.push(ids[ids.length - 1]);
+            }
+            break;
         } else if (family === 'python' && p.type === 'function_definition') {
-            const nm = p.childForFieldName('name');
-            if (nm) parts.push(nm.text);
+            const nm = nodeName(p, 'python');
+            if (nm) parts.push(nm);
         }
         p = p.parent;
     }
     return parts.reverse().join('.');
 }
 
-function ccOfNode(fn, fam, family) {
+function ccOfNode(target, fam, family) {
     let count = 1;
     const stack = [];
-    for (let i = fn.childCount - 1; i >= 0; i--) stack.push(fn.child(i));
+    for (let i = target.childCount - 1; i >= 0; i--) stack.push(target.child(i));
 
     while (stack.length > 0) {
         const n = stack.pop();
-        if (fam.classes.has(n.type) || n.type === 'lambda' || countedFunctionName(n, fam, family) !== null) {
+        if (fam.classes.has(n.type) || n.type === 'lambda' || n.type === 'closure_expression' ||
+            countedFunctionInfo(n, fam, family) !== null) {
             continue;
         }
         const t = n.type;
@@ -534,7 +911,7 @@ function ccOfNode(fn, fam, family) {
             if (!(DEFAULT_CASE_TYPES.has(t) && firstText.startsWith('default'))) {
                 count += 1;
             }
-        } else if (t === 'binary_expression') {
+        } else if (t === 'binary_expression' || t === 'binary') {
             const op = n.childForFieldName('operator');
             if (op && (op.text === '&&' || op.text === '||' || op.text === '??' || op.text === 'and' || op.text === 'or')) {
                 count += 1;
@@ -555,18 +932,26 @@ function extractFunctions(root, rel, lang) {
         const n = stack.pop();
         for (let i = n.childCount - 1; i >= 0; i--) stack.push(n.child(i));
 
-        let nm = countedFunctionName(n, fam, family);
-        if (nm === null) continue;
+        const info = countedFunctionInfo(n, fam, family);
+        if (!info) continue;
 
+        let nm = info.name;
         let owner = '';
         if (family === 'cpp' && nm.includes('::')) {
             const parts = nm.split('::');
             owner = parts[parts.length - 2];
             nm = parts[parts.length - 1];
+        } else if (family === 'go' && n.type === 'method_declaration') {
+            const recv = n.childForFieldName('receiver');
+            if (recv) {
+                const ids = identLeaves(recv, TYPE_ARG_NODES);
+                if (ids.length) owner = ids[ids.length - 1];
+            }
         }
         owner = owner || enclosingPrefix(n, fam, family);
         const qual = owner ? `${owner}.${nm}` : nm;
-        out.push({ qual, cc: ccOfNode(n, fam, family), rel, line: n.startPosition.row + 1 });
+        const ccTarget = family === 'dart' ? info.body : n;
+        out.push({ qual, cc: ccOfNode(ccTarget, fam, family), rel, line: n.startPosition.row + 1 });
     }
     return out;
 }
@@ -621,11 +1006,13 @@ function securityScan(src, rel, lang) {
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (line.length > 600) continue; // avoid regex stalls on minified/data lines
+        if (line.length > 600) continue;
         const trimmed = line.trimStart();
-        if (family === 'python' ? trimmed.startsWith('#') : (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*'))) {
-            continue;
-        }
+        const isComment = (family === 'python' || family === 'ruby')
+            ? trimmed.startsWith('#')
+            : (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*'));
+        if (isComment) continue;
+
         for (const [rx, sev, msg] of rules) {
             if (rx.test(line)) {
                 out.push({ severity: sev, message: msg, file: rel, line: i + 1 });
@@ -725,7 +1112,6 @@ function styleScan(root, src, rel, lang, isInit, checkDocs) {
             add('convention', 'missing module docstring', 1);
         }
 
-        // Collect used identifiers (outside import statements) + __all__ exports
         const used = new Set();
         const stackU = [root];
         while (stackU.length > 0) {
@@ -825,7 +1211,6 @@ function styleScan(root, src, rel, lang, isInit, checkDocs) {
         return { items: out, stmts };
     }
 
-    // Java, C#, JS/TS, C++
     const headOf = (n) => n.text.slice(0, 200).split('{')[0].split('(')[0];
     const hasDoc = (n) => {
         const p = n.parent && n.parent.type === 'export_statement' ? n.parent : n;
@@ -833,65 +1218,95 @@ function styleScan(root, src, rel, lang, isInit, checkDocs) {
         return !!(prev && prev.type.includes('comment'));
     };
     const isPublic = (n, name) => {
-        if (family === 'java' || family === 'csharp') return headOf(n).includes('public');
+        if (family === 'java' || family === 'csharp' || family === 'php') return headOf(n).includes('public');
         if (family === 'js') {
             const h = headOf(n);
             return !name.startsWith('_') && !name.startsWith('#') && name !== 'constructor' &&
                 !h.includes('private') && !h.includes('protected');
         }
+        if (family === 'dart') return !name.startsWith('_');
+        if (family === 'go') return name.length > 0 && name[0] >= 'A' && name[0] <= 'Z';
+        if (family === 'rust') return /\bpub\b/.test(headOf(n));
+        if (family === 'kotlin' || family === 'swift') {
+            const h = headOf(n);
+            return !h.includes('private') && !h.includes('internal') && !h.includes('protected');
+        }
+        if (family === 'ruby') return !name.startsWith('_') && name !== 'initialize';
         return false;
     };
+
+    const fnNameRegex = {
+        java: NAME_CAMEL_FN,
+        csharp: NAME_CS_FN,
+        js: NAME_JS_FN,
+        dart: NAME_CAMEL_FN,
+        kotlin: NAME_CAMEL_FN,
+        swift: NAME_CAMEL_FN,
+        php: NAME_PHP_FN,
+        rust: NAME_RUST_FN,
+        ruby: NAME_RUBY_FN
+    }[family] || null;
 
     const stack = [root];
     while (stack.length > 0) {
         const n = stack.pop();
         for (let i = n.childCount - 1; i >= 0; i--) stack.push(n.child(i));
         const t = n.type;
-        if (t.endsWith('_statement') || t.endsWith('_declaration') || t.endsWith('_definition')) stmts += 1;
+        if (t.endsWith('_statement') || t.endsWith('_declaration') || t.endsWith('_definition') ||
+            t.endsWith('_expression') && n.parent === root || t === 'function_item' || t === 'method') {
+            stmts += 1;
+        }
 
         if (fam.classes.has(t)) {
-            const nm = n.childForFieldName('name');
-            if (nm) {
-                const name = nm.text;
+            const name = nodeName(n, family);
+            if (name) {
                 const lineNo = n.startPosition.row + 1;
-                if (family !== 'cpp' && !NAME_CLS.test(name)) add('convention', `class name '${name}' is not PascalCase`, lineNo);
-                if (checkDocs && family !== 'cpp' && isPublic(n, name) && !hasDoc(n)) {
+                if (family !== 'cpp' && family !== 'c' && family !== 'go' && !NAME_CLS.test(name)) {
+                    add('convention', `class name '${name}' is not PascalCase`, lineNo);
+                }
+                if (checkDocs && family !== 'cpp' && family !== 'c' && isPublic(n, name) && !hasDoc(n)) {
                     add('convention', `missing class documentation (${name})`, lineNo);
                 }
             }
         }
 
-        const fname = countedFunctionName(n, fam, family);
-        if (fname === null) continue;
-        const short = fname.split('::').pop();
+        const finfo = countedFunctionInfo(n, fam, family);
+        if (!finfo) continue;
+        const short = finfo.name.split('::').pop();
         const lineNo = n.startPosition.row + 1;
-        const isCtor = t === 'constructor_declaration' || t === 'destructor_declaration' || short === 'constructor';
-        const rx = family === 'java' ? NAME_JAVA_FN : family === 'csharp' ? NAME_CS_FN : family === 'js' ? NAME_JS_FN : null;
-        if (rx && !isCtor && t !== 'local_function_statement' && !rx.test(short)) {
+        const isCtor = t === 'constructor_declaration' || t === 'destructor_declaration' ||
+            t === 'secondary_constructor' || t === 'init_declaration' || t === 'deinit_declaration' ||
+            short === 'constructor' || short === '__construct' || short === 'initialize' ||
+            (family === 'dart' && /^[A-Z]/.test(short));
+        if (fnNameRegex && !isCtor && t !== 'local_function_statement' && !fnNameRegex.test(short)) {
             add('convention', `function name '${short}' violates the language naming convention`, lineNo);
         }
-        const body = n.childForFieldName('body');
+
+        const body = finfo.body;
         const nBody = body ? body.namedChildren.filter((c) => !c.type.includes('comment')).length : 0;
-        if (checkDocs && family !== 'cpp' && isPublic(n, short) && nBody > 2 && !hasDoc(n)) {
+        if (checkDocs && family !== 'cpp' && family !== 'c' && isPublic(n, short) && nBody > 2 && !hasDoc(n)) {
             add('convention', `missing function documentation (${short})`, lineNo);
         }
-        let params = n.childForFieldName('parameters');
-        if (!params && family === 'cpp') {
+
+        let params = n.childForFieldName('parameters') || firstChildOfTypes(n, new Set(['formal_parameter_list', 'formal_parameters', 'function_value_parameters', 'method_parameters', 'parameters']));
+        if (!params && (family === 'cpp' || family === 'c')) {
             const d = n.childForFieldName('declarator');
             params = d ? d.childForFieldName('parameters') : null;
         }
         if (params && params.namedChildren.filter((c) => !c.type.includes('comment')).length > 5) {
             add('refactor', `too many arguments in ${short}() (>5)`, lineNo);
         }
-        if (n.endPosition.row - n.startPosition.row + 1 > 50) {
+        if (finfo.endRow - n.startPosition.row + 1 > 50) {
             add('refactor', `function ${short}() is longer than 50 lines`, lineNo);
         }
+
         let deepest = 0;
+        const target = family === 'dart' ? body : n;
         const st2 = [];
-        for (let i = n.childCount - 1; i >= 0; i--) st2.push([n.child(i), 0]);
+        for (let i = target.childCount - 1; i >= 0; i--) st2.push([target.child(i), 0]);
         while (st2.length > 0) {
             const [x, d] = st2.pop();
-            if (fam.classes.has(x.type) || countedFunctionName(x, fam, family) !== null) continue;
+            if (fam.classes.has(x.type) || countedFunctionInfo(x, fam, family) !== null) continue;
             const nd = CONTROL_TYPES.has(x.type) ? d + 1 : d;
             if (nd > deepest) deepest = nd;
             for (let i = x.childCount - 1; i >= 0; i--) st2.push([x.child(i), nd]);
@@ -954,13 +1369,13 @@ function analyzeFile(filePath, rootDir, lang, parser, checkDocs) {
         return { error: `${rel}: file larger than 2 MB, skipped` };
     }
     let src = fs.readFileSync(filePath, 'utf8');
-    if (src.charCodeAt(0) === 0xfeff) src = src.slice(1); // strip UTF-8 BOM
+    if (src.charCodeAt(0) === 0xfeff) src = src.slice(1);
     const isInit = lang === 'python' && path.basename(filePath) === '__init__.py';
 
     const tree = parser.parse(src);
     try {
         const root = tree.rootNode;
-        const { classes, pendingCpp } = extractClassesFromTree(root, rel, lang);
+        const { classes, pendingMethods } = extractClassesFromTree(root, rel, lang);
         const funcs = extractFunctions(root, rel, lang);
         const stats = tokenStats(root, src, lang);
         const sec = securityScan(src, rel, lang);
@@ -968,10 +1383,10 @@ function analyzeFile(filePath, rootDir, lang, parser, checkDocs) {
         const style = styleScan(root, src, rel, lang, isInit, checkDocs);
         const pyImports = lang === 'python' ? extractPythonImports(root) : [];
         return {
-            info: { path: filePath, rel, lang, isInit, classes, pendingCpp, funcs, stats, sec, bugs, style, pyImports }
+            info: { path: filePath, rel, lang, isInit, classes, pendingMethods, funcs, stats, sec, bugs, style, pyImports }
         };
     } finally {
-        tree.delete(); // free WASM memory immediately
+        tree.delete();
     }
 }
 
@@ -979,17 +1394,18 @@ function buildClasses(fileInfos) {
     const byGroup = new Map();
     for (const fi of fileInfos) {
         const g = groupOf(fi.lang);
-        if (!byGroup.has(g)) byGroup.set(g, { map: new Map(), pendingCpp: [] });
+        if (!byGroup.has(g)) byGroup.set(g, { map: new Map(), pendingMethods: [] });
         const entry = byGroup.get(g);
         for (const c of fi.classes) entry.map.set(c.name, c);
-        for (const p of fi.pendingCpp) entry.pendingCpp.push(p);
+        for (const p of fi.pendingMethods) entry.pendingMethods.push(p);
     }
 
-    // Resolve C++ out-of-class method definitions (Class::method)
+    // Attach out-of-class methods for C++, Go, and Rust
     for (const [, entry] of byGroup.entries()) {
-        for (const p of entry.pendingCpp) {
+        for (const p of entry.pendingMethods) {
             const c = entry.map.get(p.scope);
-            if (c) {
+            if (!c) continue;
+            if (p.mname) {
                 if (!c.methods.includes(p.mname)) c.methods.push(p.mname);
                 const used = new Set();
                 for (const id of p.usedIdents) {
@@ -997,6 +1413,12 @@ function buildClasses(fileInfos) {
                 }
                 c.mfields.set(p.mname, used);
             }
+            if (p.traitName) {
+                if (!c.bases.includes(p.traitName)) c.bases.push(p.traitName);
+                c.impls.add(p.traitName);
+            }
+            if (p.refs) for (const r of p.refs) c.refs.add(r);
+            if (p.calls) for (const cl of p.calls) c.calls.add(cl);
         }
     }
 

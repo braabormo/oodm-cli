@@ -16,7 +16,7 @@ const { renderTable, renderCsv, renderMd, renderHtml } = require('./render');
 const VERSION = pkg.version || '2.0.0';
 
 const HELP_TEXT = `oodm ${VERSION} - measure 16 object-oriented design / code-quality metrics in one command.
-Supports Python, Java, C#, JavaScript/TypeScript, and C++ out of the box (WebAssembly tree-sitter).
+Supports Python, Java, C#, JS/TS, C/C++, Dart (Flutter), PHP, Kotlin, Swift, Go, Rust, and Ruby.
 
 Usage:
   npx oodm-cli [path] [options]
@@ -448,7 +448,7 @@ async function main(argv) {
 
     const rep = await analyze(a);
     if (!rep) {
-        console.error(`No supported source files (.py .java .cs .js .ts .cpp ...) in ${path.resolve(a.path)}`);
+        console.error(`No supported source files (.py .java .cs .js .ts .cpp .c .dart .php .kt .swift .go .rs .rb ...) in ${path.resolve(a.path)}`);
         return 1;
     }
 
