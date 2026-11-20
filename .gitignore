@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Generated OODM reports & test outputs
+oodm-report.html
+*.report.html
+report.json
+report.csv
+baseline.json
+QUALITY.md
+
+# Environment & secrets
+.env
+.env.*
+
+# Logs & caches
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.npm/
+.cache/
+
+# OS & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Old build artifacts
+dist/
+build/
+*.exe
+*.tgz
