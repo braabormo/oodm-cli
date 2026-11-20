@@ -2,7 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const Parser = require('web-tree-sitter');
+const ts = require('web-tree-sitter');
+
+const Parser = ts.Parser || ts;
+const Language = ts.Language || Parser.Language;
 
 const SKIP_DIRS = new Set([
     '.git', '.hg', '.svn', 'venv', '.venv', 'env', 'node_modules', '__pycache__',
@@ -219,7 +222,13 @@ const _parsers = new Map();
 
 async function initTreeSitter() {
     if (_initialized) return;
-    await Parser.init();
+    const runtimeDir = path.dirname(require.resolve('web-tree-sitter'));
+    await Parser.init({
+        locateFile(scriptName) {
+            const candidate = path.join(runtimeDir, scriptName);
+            return fs.existsSync(candidate) ? candidate : scriptName;
+        }
+    });
     _wasmDir = path.join(path.dirname(require.resolve('tree-sitter-wasms/package.json')), 'out');
     _initialized = true;
 }
@@ -235,12 +244,13 @@ async function getParser(lang) {
         return null;
     }
     try {
-        const language = await Parser.Language.load(wasmPath);
+        const language = await Language.load(wasmPath);
         const parser = new Parser();
         parser.setLanguage(language);
         _parsers.set(lang, parser);
         return parser;
-    } catch {
+    } catch (err) {
+        console.error(`warning: failed to load ${lang} parser: ${err && err.message ? err.message : err}`);
         _parsers.set(lang, null);
         return null;
     }

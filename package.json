@@ -1,6 +1,6 @@
 {
   "name": "oodm-cli",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Measure 16 object-oriented design and code-quality metrics across Python, Java, C#, JS/TS, and C++",
   "main": "src/index.js",
   "bin": {
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "tree-sitter-wasms": "0.1.13",
-    "web-tree-sitter": "0.22.6"
+    "web-tree-sitter": "0.25.10"
   },
   "keywords": [
     "oodm",
