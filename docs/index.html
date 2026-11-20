@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>OODM · قِس 16 معياراً لجودة الكود والتصميم بأمر واحد</title>
+    <meta name="description" content="Measure 16 object-oriented design and code quality metrics across 15 programming languages in one command. Zero setup, 100% local.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;600&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --brand:#00B4FF;
+            --brand-dark:#008ECC;
+            --brand-soft:#EBF8FF;
+            --brand-bd:#B3E8FF;
+            --ink-dark:#0B1628;
+            --ink-mid:#142542;
+            --bg:#FFFFFF;
+            --bg-alt:#F5FAFF;
+            --border:#E2EEF8;
+            --text:#0F172A;
+            --muted:#475569;
+            --subtle:#64748B;
+            --ex:#059669;--ex-bg:#ECFDF5;--ex-bd:#A7F3D0;
+            --ac:#D97706;--ac-bg:#FFFBEB;--ac-bd:#FDE68A;
+            --pr:#E11D48;--pr-bg:#FFF1F2;--pr-bd:#FECDD3;
+            --radius:18px;
+            --shadow:0 4px 20px rgba(0,180,255,.07),0 1px 3px rgba(15,23,42,.04);
+            font-family:"Google Sans","Google Sans Flex","Segoe UI",Tahoma,system-ui,-apple-system,sans-serif;
+        }
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{margin:0;background:var(--bg);color:var(--text);line-height:1.65;overflow-x:hidden}
+        a{color:inherit;text-decoration:none}
+        code,pre{font-family:"Google Sans Code",ui-monospace,SFMono-Regular,Consolas,monospace}
+
+        /* Navbar */
+        .nav{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+        .nav-inner{max-width:1240px;margin:auto;padding:12px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+        .logo-frame{background:var(--ink-dark);border:1.5px solid rgba(0,180,255,.45);border-radius:12px;padding:7px 14px;display:inline-flex;align-items:center;box-shadow:0 4px 14px rgba(0,180,255,.16);flex-shrink:0}
+        .logo-frame img,.logo-frame svg{height:22px;width:auto;display:block}
+        .nav-links{display:flex;align-items:center;gap:24px;font-size:14px;font-weight:500;color:var(--muted)}
+        .nav-links a:hover{color:var(--brand-dark)}
+        .nav-actions{display:flex;align-items:center;gap:10px}
+        .lang-switch{display:inline-flex;background:var(--brand-soft);border:1px solid var(--brand-bd);border-radius:10px;padding:3px;gap:2px}
+        .lang-switch button{border:0;background:transparent;padding:5px 12px;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;color:var(--brand-dark);transition:.15s}
+        .lang-switch button.active{background:var(--brand);color:#fff}
+        .gh-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;background:var(--ink-dark);color:#fff;font-size:13px;font-weight:700;transition:.15s}
+        .gh-pill:hover{background:var(--brand-dark)}
+        .gh-pill svg{width:16px;height:16px;fill:currentColor}
+
+        /* Hero */
+        .hero{position:relative;padding:76px 22px 68px;background:radial-gradient(900px 420px at 50% -10%,rgba(0,180,255,.14),transparent 70%),linear-gradient(180deg,#FFFFFF 0%,#F5FAFF 100%);border-bottom:1px solid var(--border)}
+        .hero-inner{max-width:1240px;margin:auto;display:grid;grid-template-columns:1.1fr .9fr;gap:42px;align-items:center}
+        .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--brand-soft);border:1px solid var(--brand-bd);color:var(--brand-dark);font-size:12.5px;font-weight:700;margin-bottom:18px}
+        .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 4px rgba(0,180,255,.22)}
+        .hero h1{margin:0 0 16px;font-size:clamp(30px,4.3vw,48px);font-weight:700;line-height:1.18;letter-spacing:-.02em}
+        .hero h1 .accent{color:var(--brand)}
+        .hero-desc{margin:0 0 26px;font-size:16.5px;color:var(--muted);max-width:560px}
+
+        /* Copy Command Box */
+        .cmd-box{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink-dark);border:1.5px solid rgba(0,180,255,.4);border-radius:14px;padding:12px 14px 12px 18px;max-width:490px;box-shadow:0 12px 30px rgba(11,22,40,.14);direction:ltr}
+        .cmd-text{color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px;overflow-x:auto}
+        .cmd-text .prompt{color:var(--brand)}
+        .copy-btn{border:0;background:var(--brand);color:#fff;padding:8px 16px;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;flex-shrink:0}
+        .copy-btn:hover{background:#29C3FF}
+
+        .hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
+        .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;background:var(--brand);color:#fff;font-weight:700;font-size:14.5px;box-shadow:0 6px 18px rgba(0,180,255,.3);transition:.15s}
+        .btn-primary:hover{background:var(--brand-dark);transform:translateY(-1px)}
+        .btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;background:#fff;border:1.5px solid var(--border);color:var(--text);font-weight:700;font-size:14.5px;transition:.15s}
+        .btn-ghost:hover{border-color:var(--brand);color:var(--brand-dark);background:var(--brand-soft)}
+
+        .hero-stats{display:flex;gap:26px;flex-wrap:wrap;margin-top:30px;padding-top:22px;border-top:1px solid var(--border)}
+        .h-stat b{display:block;font-size:22px;font-weight:700;color:var(--text);line-height:1.1}
+        .h-stat span{font-size:12.5px;color:var(--subtle)}
+
+        /* Interactive Preview Mockup */
+        .preview-stack{display:flex;flex-direction:column;gap:14px}
+        .term-win{background:var(--ink-dark);border-radius:16px;border:1px solid rgba(0,180,255,.3);overflow:hidden;box-shadow:0 18px 40px rgba(11,22,40,.18);direction:ltr;text-align:left}
+        .term-bar{background:#11223D;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)}
+        .term-dots{display:flex;gap:6px}
+        .term-dots i{width:10px;height:10px;border-radius:50%;display:block}
+        .term-dots i:nth-child(1){background:#FB7185}.term-dots i:nth-child(2){background:#FBBF24}.term-dots i:nth-child(3){background:#34D399}
+        .term-title{font-size:11.5px;color:#94A3B8;font-family:"Google Sans Code",monospace}
+        .term-body{padding:16px 18px;font-family:"Google Sans Code",monospace;font-size:12.5px;line-height:1.7;color:#E2E8F0}
+        .t-dim{color:#64748B}.t-blue{color:var(--brand);font-weight:600}.t-green{color:#34D399}.t-amber{color:#FBBF24}
+
+        .mini-report{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
+        .mini-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+        .mini-head strong{font-size:14px}
+        .mini-score{background:var(--ex-bg);color:var(--ex);border:1px solid var(--ex-bd);padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+        .mini-bars{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .mini-item{background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px}
+        .mini-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;font-weight:700}
+        .mini-track{height:6px;background:#E2EEF8;border-radius:999px;overflow:hidden}
+        .mini-fill{height:100%;border-radius:999px}
+
+        /* Sections */
+        .section{padding:72px 22px}
+        .section.alt{background:var(--bg-alt);border-block:1px solid var(--border)}
+        .container{max-width:1240px;margin:auto}
+        .sec-head{text-align:center;max-width:680px;margin:0 auto 44px}
+        .sec-tag{display:inline-block;padding:4px 12px;border-radius:999px;background:var(--brand-soft);border:1px solid var(--brand-bd);color:var(--brand-dark);font-size:12px;font-weight:700;margin-bottom:10px}
+        .sec-head h2{margin:0 0 10px;font-size:clamp(24px,3vw,34px);font-weight:700;line-height:1.25}
+        .sec-head p{margin:0;font-size:15.5px;color:var(--muted)}
+
+        /* Features Grid */
+        .feat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+        .feat-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);transition:.18s}
+        .feat-card:hover{border-color:var(--brand);transform:translateY(-3px)}
+        .feat-icon{width:46px;height:46px;border-radius:13px;background:var(--brand-soft);border:1px solid var(--brand-bd);color:var(--brand-dark);display:grid;place-items:center;margin-bottom:14px}
+        .feat-icon svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .feat-card h3{margin:0 0 8px;font-size:17px;font-weight:700}
+        .feat-card p{margin:0;font-size:14px;color:var(--muted)}
+
+        /* Languages Grid */
+        .lang-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+        .lang-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:.15s;box-shadow:0 1px 4px rgba(15,23,42,.03)}
+        .lang-card:hover{border-color:var(--brand);background:var(--brand-soft)}
+        .lang-name{font-weight:700;font-size:14.5px;display:block}
+        .lang-ext{font-family:"Google Sans Code",monospace;font-size:11.5px;color:var(--subtle);direction:ltr;display:block;margin-top:2px}
+        .lang-dot{width:10px;height:10px;border-radius:50%;background:var(--brand);flex-shrink:0}
+
+        /* Metrics Tabs */
+        .tabs{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:26px}
+        .tab-btn{border:1px solid var(--border);background:#fff;color:var(--muted);padding:9px 16px;border-radius:999px;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s}
+        .tab-btn:hover{border-color:var(--brand);color:var(--brand-dark);background:var(--brand-soft)}
+        .tab-btn.active{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 4px 12px rgba(0,180,255,.3)}
+
+        .metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+        .m-item{background:#fff;border:1px solid var(--border);border-top:3.5px solid var(--brand);border-radius:15px;padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+        .m-item.hidden{display:none}
+        .m-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+        .m-num{font-size:12px;font-weight:700;color:var(--brand-dark);background:var(--brand-soft);border:1px solid var(--brand-bd);padding:2px 8px;border-radius:6px}
+        .m-target{font-size:11.5px;color:var(--subtle);font-weight:600}
+        .m-item h3{margin:2px 0 0;font-size:15.5px;font-weight:700}
+        .m-item p{margin:0;font-size:13.5px;color:var(--muted)}
+
+        /* Usage / CLI Tabs */
+        .usage-wrap{max-width:920px;margin:auto;background:#fff;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}
+        .u-tabs{display:flex;gap:4px;padding:12px;background:var(--bg-alt);border-bottom:1px solid var(--border);flex-wrap:wrap}
+        .u-tab{border:0;background:transparent;padding:9px 15px;border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.15s}
+        .u-tab.active{background:var(--brand);color:#fff}
+        .u-panel{display:none;padding:24px}
+        .u-panel.active{display:block}
+        .u-panel p{margin:0 0 14px;font-size:14.5px;color:var(--muted)}
+        .code-block{position:relative;background:var(--ink-dark);color:#E2E8F0;border-radius:13px;padding:16px 18px;font-size:13px;line-height:1.75;overflow-x:auto;direction:ltr;text-align:left}
+        .code-block .c-copy{position:absolute;top:10px;right:10px;border:1px solid rgba(0,180,255,.45);background:rgba(0,180,255,.15);color:#fff;padding:5px 11px;border-radius:8px;font-family:"Google Sans",sans-serif;font-size:12px;font-weight:700;cursor:pointer}
+        .code-block .c-copy:hover{background:var(--brand)}
+
+        /* CTA Banner */
+        .cta-section{padding:64px 22px}
+        .cta-box{max-width:1100px;margin:auto;background:linear-gradient(135deg,var(--ink-dark) 0%,var(--ink-mid) 65%,#0E3156 100%);border:1.5px solid rgba(0,180,255,.4);border-radius:24px;padding:48px 32px;text-align:center;color:#fff;position:relative;overflow:hidden;box-shadow:0 20px 50px rgba(11,22,40,.18)}
+        .cta-box h2{margin:0 0 12px;font-size:clamp(24px,3.2vw,34px)}
+        .cta-box p{margin:0 auto 26px;max-width:580px;color:#CBD5E1;font-size:15.5px}
+        .cta-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+        .btn-light{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:12px;background:#fff;color:var(--ink-dark);font-weight:700;font-size:14.5px;transition:.15s}
+        .btn-light:hover{background:var(--brand-soft)}
+
+        /* Footer */
+        .footer{border-top:1px solid var(--border);background:var(--bg-alt);padding:28px 22px}
+        .footer-inner{max-width:1240px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--subtle)}
+        .footer-links{display:flex;gap:18px;align-items:center;flex-wrap:wrap;font-weight:600}
+        .footer-links a:hover{color:var(--brand-dark)}
+
+        /* Toast */
+        .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink-dark);color:#fff;border:1px solid var(--brand);padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:60;box-shadow:0 10px 26px rgba(0,180,255,.25)}
+        .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+        @media(max-width:980px){
+            .hero-inner{grid-template-columns:1fr}
+            .feat-grid,.metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+            .lang-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+            .nav-links{display:none}
+        }
+        @media(max-width:600px){
+            .feat-grid,.metrics-grid,.mini-bars{grid-template-columns:1fr}
+            .lang-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+            .hero{padding:46px 16px}
+            .section{padding:52px 16px}
+        }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-inner">
+        <a class="logo-frame" href="#" aria-label="OODM">
+            <img src="logo.png" alt="OODM" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+            <svg style="display:none" viewBox="0 0 210 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <text x="2" y="34" font-family="Google Sans, Segoe UI, sans-serif" font-weight="800" font-size="33" letter-spacing="1"><tspan fill="#00B4FF">O</tspan><tspan fill="#FFFFFF">ODM</tspan></text>
+                <path d="M148 13 L172 24 L148 35" stroke="#00B4FF" stroke-width="5.5" stroke-linecap="square"/>
+                <rect x="178" y="33" width="24" height="5.5" fill="#00B4FF"/>
+            </svg>
+        </a>
+        <div class="nav-links">
+            <a href="#features" data-ar="المميزات" data-en="Features">المميزات</a>
+            <a href="#languages" data-ar="اللغات" data-en="Languages">اللغات</a>
+            <a href="#metrics" data-ar="المعايير الـ 16" data-en="16 Metrics">المعايير الـ 16</a>
+            <a href="#usage" data-ar="طريقة الاستخدام" data-en="Usage">طريقة الاستخدام</a>
+        </div>
+        <div class="nav-actions">
+            <div class="lang-switch">
+                <button id="btn-ar" class="active" onclick="setLang('ar')">العربية</button>
+                <button id="btn-en" onclick="setLang('en')">English</button>
+            </div>
+            <a class="gh-pill" href="https://github.com/braabormo/oodm-cli" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.04 11.04 0 0 1 5.8 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.69 5.4-5.26 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.8-.01 3.18 0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+                <span>GitHub</span>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="hero-inner">
+        <div>
+            <div class="eyebrow"><span class="dot"></span><span data-ar="مفتوح المصدر · يعمل محلياً 100% بدون إعداد" data-en="Open Source · 100% Local · Zero Setup">مفتوح المصدر · يعمل محلياً 100% بدون إعداد</span></div>
+            <h1>
+                <span data-ar="قِس" data-en="Measure">قِس</span>
+                <span class="accent" data-ar="16 معياراً" data-en="16 Metrics">16 معياراً</span>
+                <span data-ar="لجودة الكود والتصميم الكائني بأمر واحد" data-en="for OO Design & Code Quality in One Command">لجودة الكود والتصميم الكائني بأمر واحد</span>
+            </h1>
+            <p class="hero-desc" data-ar="أداة CLI سريعة ومجانية تحلل مشاريعك عبر 15 لغة برمجة (من بينها Flutter و Python و JavaScript و PHP و Java و C#) وتولّد تقريراً تفاعلياً مع نصائح عملية فورية لتحسين الكود." data-en="A fast, free CLI powered by WebAssembly Tree-sitter that analyzes 15 languages (including Flutter/Dart, Python, JS/TS, PHP, Java, C#) and generates an interactive bilingual report with actionable improvement tips.">أداة CLI سريعة ومجانية تحلل مشاريعك عبر 15 لغة برمجة (من بينها Flutter و Python و JavaScript و PHP و Java و C#) وتولّد تقريراً تفاعلياً مع نصائح عملية فورية لتحسين الكود.</p>
+
+            <div class="cmd-box">
+                <div class="cmd-text"><span class="prompt">&gt;_</span><span>npx oodm-cli@latest</span></div>
+                <button class="copy-btn" onclick="copyText('npx oodm-cli@latest')" data-ar="نسخ" data-en="Copy">نسخ</button>
+            </div>
+
+            <div class="hero-ctas">
+                <a class="btn-primary" href="#usage" data-ar="ابدأ الاستخدام الآن" data-en="Get Started">ابدأ الاستخدام الآن</a>
+                <a class="btn-ghost" href="https://github.com/braabormo/oodm-cli" target="_blank" rel="noopener noreferrer" data-ar="عرض الكود على GitHub" data-en="View on GitHub">عرض الكود على GitHub</a>
+            </div>
+
+            <div class="hero-stats">
+                <div class="h-stat"><b>16</b><span data-ar="معيار جودة وتصميم" data-en="Quality & OOD Metrics">معيار جودة وتصميم</span></div>
+                <div class="h-stat"><b>15</b><span data-ar="لغة برمجة مدعومة" data-en="Languages Supported">لغة برمجة مدعومة</span></div>
+                <div class="h-stat"><b>0</b><span data-ar="إعدادات أو تثبيتات إضافية" data-en="Config or Extra Installs">إعدادات أو تثبيتات إضافية</span></div>
+                <div class="h-stat"><b>100%</b><span data-ar="خاص ومحلي على جهازك" data-en="Local & Private">خاص ومحلي على جهازك</span></div>
+            </div>
+        </div>
+
+        <div class="preview-stack">
+            <div class="term-win">
+                <div class="term-bar">
+                    <div class="term-dots"><i></i><i></i><i></i></div>
+                    <span class="term-title">terminal — oodm-cli</span>
+                </div>
+                <div class="term-body">
+                    <div><span class="t-blue">$</span> npx oodm-cli@latest ./my-project</div>
+                    <div class="t-dim">Scanning 128 files (dart 84, ts 44), 62 classes...</div>
+                    <div><span class="t-green">✓</span> Maintainability Index (MI) ..... <span class="t-green">81.4 / 100</span></div>
+                    <div><span class="t-green">✓</span> Coupling (CBO) ................ <span class="t-green">2.85</span></div>
+                    <div><span class="t-amber">!</span> Cyclomatic Complexity (CC) .... <span class="t-amber">6.40</span> <span class="t-dim">(4 funcs &gt; 10)</span></div>
+                    <div><span class="t-green">✓</span> Security Issues (high) ........ <span class="t-green">0</span></div>
+                    <div class="t-blue">→ report written to oodm-report.html</div>
+                </div>
+            </div>
+
+            <div class="mini-report">
+                <div class="mini-head">
+                    <strong data-ar="معاينة التقرير التفاعلي (oodm-report.html)" data-en="Interactive Report Preview (oodm-report.html)">معاينة التقرير التفاعلي (oodm-report.html)</strong>
+                    <span class="mini-score" data-ar="صحة المشروع: 86% · ممتاز" data-en="Code Health: 86% · Excellent">صحة المشروع: 86% · ممتاز</span>
+                </div>
+                <div class="mini-bars">
+                    <div class="mini-item">
+                        <div class="mini-row"><span data-ar="قابلية الصيانة (MI)" data-en="Maintainability (MI)">قابلية الصيانة (MI)</span><span style="color:var(--ex)">81.4</span></div>
+                        <div class="mini-track"><div class="mini-fill" style="width:81%;background:var(--ex)"></div></div>
+                    </div>
+                    <div class="mini-item">
+                        <div class="mini-row"><span data-ar="جودة الأسلوب" data-en="Style Score">جودة الأسلوب</span><span style="color:var(--brand-dark)">8.2/10</span></div>
+                        <div class="mini-track"><div class="mini-fill" style="width:82%;background:var(--brand)"></div></div>
+                    </div>
+                    <div class="mini-item">
+                        <div class="mini-row"><span data-ar="التعقيد الدوري (CC)" data-en="Complexity (CC)">التعقيد الدوري (CC)</span><span style="color:var(--ac)">6.40</span></div>
+                        <div class="mini-track"><div class="mini-fill" style="width:55%;background:var(--ac)"></div></div>
+                    </div>
+                    <div class="mini-item">
+                        <div class="mini-row"><span data-ar="الثغرات الأمنية" data-en="Security Alerts">الثغرات الأمنية</span><span style="color:var(--ex)">0</span></div>
+                        <div class="mini-track"><div class="mini-fill" style="width:100%;background:var(--ex)"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<section class="section" id="features">
+    <div class="container">
+        <div class="sec-head">
+            <span class="sec-tag" data-ar="لماذا OODM؟" data-en="Why OODM?">لماذا OODM؟</span>
+            <h2 data-ar="كل ما تحتاجه لتقييم جودة تصميم مشروعك" data-en="Everything you need to audit your codebase">كل ما تحتاجه لتقييم جودة تصميم مشروعك</h2>
+            <p data-ar="مصممة لتعمل فوراً في مشاريعك العملية والجامعية وخطوط CI بدون تعقيد." data-en="Built to work out of the box for real-world apps, academic projects, and CI pipelines.">مصممة لتعمل فوراً في مشاريعك العملية والجامعية وخطوط CI بدون تعقيد.</p>
+        </div>
+        <div class="feat-grid">
+            <div class="feat-card">
+                <div class="feat-icon"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+                <h3 data-ar="تشغيل فوري بدون إعداد (WASM)" data-en="Zero-Setup WebAssembly">تشغيل فوري بدون إعداد (WASM)</h3>
+                <p data-ar="تعتمد على web-tree-sitter؛ لا تحتاج لتثبيت Python أو Compilers. فقط اكتب npx oodm-cli@latest على Windows أو Mac أو Linux." data-en="Powered by web-tree-sitter WASM grammars. No Python, pip, or C++ compilers needed—runs natively on Windows, macOS, and Linux.">تعتمد على web-tree-sitter؛ لا تحتاج لتثبيت Python أو Compilers. فقط اكتب npx oodm-cli@latest على Windows أو Mac أو Linux.</p>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+                <h3 data-ar="تقرير HTML تفاعلي ثنائي اللغة" data-en="Interactive Bilingual Dashboard">تقرير HTML تفاعلي ثنائي اللغة</h3>
+                <p data-ar="ملف واحد مستقل باللغتين العربية والإنجليزية مع تقييم عام، ألوان دلالية واضحة، فلترة فورية، وبحث مباشر بالملف والسطر." data-en="Generates a single self-contained Arabic & English HTML dashboard with health score, semantic colors, filters, and live search.">ملف واحد مستقل باللغتين العربية والإنجليزية مع تقييم عام، ألوان دلالية واضحة، فلترة فورية، وبحث مباشر بالملف والسطر.</p>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></div>
+                <h3 data-ar="خطة تحسين ونصائح عملية" data-en="Actionable Improvement Advice">خطة تحسين ونصائح عملية</h3>
+                <p data-ar="لا تكتفي بعرض أرقام مجردة؛ بل تشرح كل معيار ومقياسه وتقدّم لك خطة تحسين بأولوية واضحة لكل نقطة ضعف." data-en="Never leaves you guessing—explains every scale and target, surfaces priority fixes, and gives tailored refactoring tips per metric.">لا تكتفي بعرض أرقام مجردة؛ بل تشرح كل معيار ومقياسه وتقدّم لك خطة تحسين بأولوية واضحة لكل نقطة ضعف.</p>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></div>
+                <h3 data-ar="مطابقة مخططات UML والمعمارية" data-en="UML & Architecture Verification">مطابقة مخططات UML والمعمارية</h3>
+                <p data-ar="قارن كودك الفعلي تلقائياً مع مخططات PlantUML (Class & Sequence) وملفات حالات الاستخدام وقواعد الطبقات المعمارية." data-en="Automatically verify your code against PlantUML class & sequence diagrams, use cases, and layered architecture rules.">قارن كودك الفعلي تلقائياً مع مخططات PlantUML (Class & Sequence) وملفات حالات الاستخدام وقواعد الطبقات المعمارية.</p>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <h3 data-ar="خصوصية تامة 100% محلياً" data-en="100% Local & Private">خصوصية تامة 100% محلياً</h3>
+                <p data-ar="كودك لا يغادر جهازك أبداً. التحليل يتم بالكامل محلياً بدون إرسال أي ملفات أو بيانات إحصائية لخوادم خارجية." data-en="Your source code never leaves your machine. Zero telemetry, zero cloud uploads, works completely offline.">كودك لا يغادر جهازك أبداً. التحليل يتم بالكامل محلياً بدون إرسال أي ملفات أو بيانات إحصائية لخوادم خارجية.</p>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></div>
+                <h3 data-ar="5 صيغ تصدير مرنة" data-en="5 Export Formats">5 صيغ تصدير مرنة</h3>
+                <p data-ar="صدّر النتائج بصيغة HTML أو JSON أو CSV أو Markdown أو جدول طرفية، مع دعم قراءة تقارير تغطية JaCoCo و lcov و Cobertura." data-en="Export to HTML, JSON, CSV, Markdown, or CLI tables, with auto-detection for JaCoCo, lcov, and Cobertura coverage reports.">صدّر النتائج بصيغة HTML أو JSON أو CSV أو Markdown أو جدول طرفية، مع دعم قراءة تقارير تغطية JaCoCo و lcov و Cobertura.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section alt" id="languages">
+    <div class="container">
+        <div class="sec-head">
+            <span class="sec-tag" data-ar="تغطية شاملة" data-en="Multi-Language Engine">تغطية شاملة</span>
+            <h2 data-ar="تدعم 15 لغة برمجة رئيسية مباشرة" data-en="15 Major Languages Out of the Box">تدعم 15 لغة برمجة رئيسية مباشرة</h2>
+            <p data-ar="سواء كان مشروعك تطبيق Flutter أو Backend أو تطبيق جوال أو مشروعاً متعدد اللغات، تقوم الأداة بتحميل محللات اللغات الموجودة فقط لسرعة فائقة." data-en="Whether you build Flutter apps, web backends, mobile apps, or polyglot monorepos—OODM lazy-loads only the grammars found in your folder.">سواء كان مشروعك تطبيق Flutter أو Backend أو تطبيق جوال أو مشروعاً متعدد اللغات، تقوم الأداة بتحميل محللات اللغات الموجودة فقط لسرعة فائقة.</p>
+        </div>
+        <div class="lang-grid">
+            <div class="lang-card"><div><span class="lang-name">Dart / Flutter</span><span class="lang-ext">.dart</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Python</span><span class="lang-ext">.py</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">JavaScript</span><span class="lang-ext">.js .jsx .mjs</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">TypeScript</span><span class="lang-ext">.ts .tsx</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Java</span><span class="lang-ext">.java</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">C# / .NET</span><span class="lang-ext">.cs</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">PHP / Laravel</span><span class="lang-ext">.php</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Kotlin</span><span class="lang-ext">.kt .kts</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Swift</span><span class="lang-ext">.swift</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Go</span><span class="lang-ext">.go</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Rust</span><span class="lang-ext">.rs</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">C++</span><span class="lang-ext">.cpp .hpp .h</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">C</span><span class="lang-ext">.c</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">Ruby</span><span class="lang-ext">.rb</span></div><span class="lang-dot"></span></div>
+            <div class="lang-card"><div><span class="lang-name">UML / Arch</span><span class="lang-ext">.puml .json</span></div><span class="lang-dot"></span></div>
+        </div>
+    </div>
+</section>
+
+<section class="section" id="metrics">
+    <div class="container">
+        <div class="sec-head">
+            <span class="sec-tag" data-ar="المعايير الأكاديمية والصناعية" data-en="Industry-Standard Suite">المعايير الأكاديمية والصناعية</span>
+            <h2 data-ar="استكشف المعايير الـ 16 التي تقيسها الأداة" data-en="Explore All 16 Measured Metrics">استكشف المعايير الـ 16 التي تقيسها الأداة</h2>
+            <p data-ar="تغطي 6 أبعاد رئيسية في هندسة البرمجيات (CK · MOOD · QMOOD · Maintainability · Security · UML)." data-en="Covering 6 core software engineering dimensions: Reusability, Maintainability, Extensibility, Diagram Fidelity, Design Quality, and Reliability.">تغطي 6 أبعاد رئيسية في هندسة البرمجيات (CK · MOOD · QMOOD · Maintainability · Security · UML).</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-cat="all" onclick="filterMetrics('all')" data-ar="الكل (16)" data-en="All (16)">الكل (16)</button>
+            <button class="tab-btn" data-cat="reuse" onclick="filterMetrics('reuse')" data-ar="إعادة الاستخدام (3)" data-en="Reusability (3)">إعادة الاستخدام (3)</button>
+            <button class="tab-btn" data-cat="maint" onclick="filterMetrics('maint')" data-ar="قابلية الصيانة (4)" data-en="Maintainability (4)">قابلية الصيانة (4)</button>
+            <button class="tab-btn" data-cat="ext" onclick="filterMetrics('ext')" data-ar="قابلية التوسعة (3)" data-en="Extensibility (3)">قابلية التوسعة (3)</button>
+            <button class="tab-btn" data-cat="uml" onclick="filterMetrics('uml')" data-ar="مطابقة المخططات (3)" data-en="Diagram Fidelity (3)">مطابقة المخططات (3)</button>
+            <button class="tab-btn" data-cat="rel" onclick="filterMetrics('rel')" data-ar="المعمارية والموثوقية (3)" data-en="Arch & Reliability (3)">المعمارية والموثوقية (3)</button>
+        </div>
+
+        <div class="metrics-grid" id="metrics-list">
+            <div class="m-item" data-cat="reuse"><div class="m-top"><span class="m-num">#1</span><span class="m-target" data-ar="المستهدف ≤ 4" data-en="Target ≤ 4">المستهدف ≤ 4</span></div><h3 data-ar="الاقتران بين الكائنات (CBO)" data-en="Coupling Between Objects (CBO)">الاقتران بين الكائنات (CBO)</h3><p data-ar="يقيس متوسط عدد الكلاسات التي يعتمد عليها كل كلاس لقياس استقلالية المكونات." data-en="Average number of peer classes coupled to each class.">يقيس متوسط عدد الكلاسات التي يعتمد عليها كل كلاس لقياس استقلالية المكونات.</p></div>
+            <div class="m-item" data-cat="reuse"><div class="m-top"><span class="m-num">#2</span><span class="m-target" data-ar="المستهدف 0 – 1" data-en="Target 0 – 1">المستهدف 0 – 1</span></div><h3 data-ar="نقص التماسك في الدوال (LCOM)" data-en="Lack of Cohesion in Methods (LCOM)">نقص التماسك في الدوال (LCOM)</h3><p data-ar="يكشف الكلاسات الضخمة التي تؤدي مهاماً غير مترابطة (تعريف CK)." data-en="Detects classes whose methods operate on disjoint fields (CK definition).">يكشف الكلاسات الضخمة التي تؤدي مهاماً غير مترابطة (تعريف CK).</p></div>
+            <div class="m-item" data-cat="reuse"><div class="m-top"><span class="m-num">#3</span><span class="m-target" data-ar="الأعلى أفضل" data-en="Higher is better">الأعلى أفضل</span></div><h3 data-ar="مؤشر إعادة الاستخدام (Reuse Index)" data-en="Reuse Index (QMOOD)">مؤشر إعادة الاستخدام (Reuse Index)</h3><p data-ar="مؤشر QMOOD المركّب مع دعم المقارنة المرجعية عبر --baseline." data-en="QMOOD composite index with optional --baseline normalization.">مؤشر QMOOD المركّب مع دعم المقارنة المرجعية عبر --baseline.</p></div>
+
+            <div class="m-item" data-cat="maint"><div class="m-top"><span class="m-num">#4</span><span class="m-target" data-ar="0–100 · المستهدف ≥ 80" data-en="0–100 · Target ≥ 80">0–100 · المستهدف ≥ 80</span></div><h3 data-ar="مؤشر قابلية الصيانة (MI)" data-en="Maintainability Index (MI)">مؤشر قابلية الصيانة (MI)</h3><p data-ar="يدمج حجم Halstead والتعقيد وعدد الأسطر والتعليقات لتقييم سهولة الصيانة." data-en="Combines Halstead volume, CC, SLOC, and comment ratio on a 0–100 scale.">يدمج حجم Halstead والتعقيد وعدد الأسطر والتعليقات لتقييم سهولة الصيانة.</p></div>
+            <div class="m-item" data-cat="maint"><div class="m-top"><span class="m-num">#5</span><span class="m-target" data-ar="المستهدف ≤ 5" data-en="Target ≤ 5">المستهدف ≤ 5</span></div><h3 data-ar="التعقيد الدوري (CC)" data-en="Cyclomatic Complexity (CC)">التعقيد الدوري (CC)</h3><p data-ar="يحسب عدد المسارات المتفرعة في كل دالة ويحدد أكثر الدوال تعقيداً." data-en="Counts independent execution paths per function and flags outliers > 10.">يحسب عدد المسارات المتفرعة في كل دالة ويحدد أكثر الدوال تعقيداً.</p></div>
+            <div class="m-item" data-cat="maint"><div class="m-top"><span class="m-num">#6</span><span class="m-target" data-ar="لكل 1K SLOC · المستهدف 0" data-en="/1K SLOC · Target 0">لكل 1K SLOC · المستهدف 0</span></div><h3 data-ar="كثافة العيوب (Defect Density)" data-en="Defect Density">كثافة العيوب (Defect Density)</h3><p data-ar="معدل الأنماط الخطرة والأخطاء البرمجية المكتشفة لكل 1,000 سطر كود." data-en="Static bug-pattern and security findings per 1,000 source lines of code.">معدل الأنماط الخطرة والأخطاء البرمجية المكتشفة لكل 1,000 سطر كود.</p></div>
+            <div class="m-item" data-cat="maint"><div class="m-top"><span class="m-num">#16</span><span class="m-target" data-ar="0–10 · المستهدف ≥ 8.5" data-en="0–10 · Target ≥ 8.5">0–10 · المستهدف ≥ 8.5</span></div><h3 data-ar="جودة الأسلوب والقراءة (Style)" data-en="Style & Readability Score">جودة الأسلوب والقراءة (Style)</h3><p data-ar="يقيم التسمية، طول الدوال والأسطر، عمق التداخل، والتوثيق لكل لغة." data-en="Scores naming conventions, line/function length, nesting depth, and docs.">يقيم التسمية، طول الدوال والأسطر، عمق التداخل، والتوثيق لكل لغة.</p></div>
+
+            <div class="m-item" data-cat="ext"><div class="m-top"><span class="m-num">#7</span><span class="m-target" data-ar="المستهدف 0 – 3" data-en="Target 0 – 3">المستهدف 0 – 3</span></div><h3 data-ar="عمق شجرة الوراثة (DIT)" data-en="Depth of Inheritance Tree (DIT)">عمق شجرة الوراثة (DIT)</h3><p data-ar="متوسط مستويات الوراثة للكلاسات لضمان عدم تعقيد التسلسل الهرمي." data-en="Average inheritance depth across classes to avoid fragile deep hierarchies.">متوسط مستويات الوراثة للكلاسات لضمان عدم تعقيد التسلسل الهرمي.</p></div>
+            <div class="m-item" data-cat="ext"><div class="m-top"><span class="m-num">#8</span><span class="m-target" data-ar="المستهدف 0 – 4" data-en="Target 0 – 4">المستهدف 0 – 4</span></div><h3 data-ar="عدد الأبناء المباشرين (NOC)" data-en="Number of Children (NOC)">عدد الأبناء المباشرين (NOC)</h3><p data-ar="متوسط الكلاسات الفرعية المباشرة لقياس نطاق تأثير التعديلات." data-en="Average immediate subclasses per class to gauge base-class impact.">متوسط الكلاسات الفرعية المباشرة لقياس نطاق تأثير التعديلات.</p></div>
+            <div class="m-item" data-cat="ext"><div class="m-top"><span class="m-num">#9</span><span class="m-target" data-ar="0–1 · المستهدف ≥ 0.10" data-en="0–1 · Target ≥ 0.10">0–1 · المستهدف ≥ 0.10</span></div><h3 data-ar="معامل تعدد الأشكال (PF)" data-en="Polymorphism Factor (PF)">معامل تعدد الأشكال (PF)</h3><p data-ar="نسبة الدوال المعاد تعريفها إلى الحد الأقصى الممكن وفق نموذج MOOD." data-en="MOOD ratio of overridden methods to potential overrides across hierarchies.">نسبة الدوال المعاد تعريفها إلى الحد الأقصى الممكن وفق نموذج MOOD.</p></div>
+
+            <div class="m-item" data-cat="uml"><div class="m-top"><span class="m-num">#10</span><span class="m-target" data-ar="المستهدف ≥ 90%" data-en="Target ≥ 90%">المستهدف ≥ 90%</span></div><h3 data-ar="التتبع الهيكلي (Class Diagram)" data-en="Structural Traceability (%)">التتبع الهيكلي (Class Diagram)</h3><p data-ar="يتحقق من وجود الكلاسات والدوال والعلاقات المرسومة في class*.puml داخل الكود." data-en="Checks diagrammed classes, methods, and relations against actual code.">يتحقق من وجود الكلاسات والدوال والعلاقات المرسومة في class*.puml داخل الكود.</p></div>
+            <div class="m-item" data-cat="uml"><div class="m-top"><span class="m-num">#11</span><span class="m-target" data-ar="المستهدف ≥ 90%" data-en="Target ≥ 90%">المستهدف ≥ 90%</span></div><h3 data-ar="المطابقة السلوكية (Sequence)" data-en="Behavioral Fidelity (%)">المطابقة السلوكية (Sequence)</h3><p data-ar="يتحقق من مطابقة استدعاءات مخطط التسلسل seq*.puml مع الاستدعاءات الفعلية." data-en="Verifies sequence diagram messages against implemented methods and calls.">يتحقق من مطابقة استدعاءات مخطط التسلسل seq*.puml مع الاستدعاءات الفعلية.</p></div>
+            <div class="m-item" data-cat="uml"><div class="m-top"><span class="m-num">#12</span><span class="m-target" data-ar="المستهدف ≥ 90%" data-en="Target ≥ 90%">المستهدف ≥ 90%</span></div><h3 data-ar="تغطية حالات الاستخدام" data-en="Use Case Coverage (%)">تغطية حالات الاستخدام</h3><p data-ar="يربط حالات الاستخدام في usecases.txt مع الكلاسات والدوال المنفّذة." data-en="Maps documented use cases in usecases.txt to implemented units in code.">يربط حالات الاستخدام في usecases.txt مع الكلاسات والدوال المنفّذة.</p></div>
+
+            <div class="m-item" data-cat="rel"><div class="m-top"><span class="m-num">#13</span><span class="m-target" data-ar="0–10 · المستهدف ≥ 9" data-en="0–10 · Target ≥ 9">0–10 · المستهدف ≥ 9</span></div><h3 data-ar="الامتثال المعماري" data-en="Architectural Compliance">الامتثال المعماري</h3><p data-ar="يكشف انتهاكات الاعتماد بين الطبقات وفق قواعد architecture.json." data-en="Detects forbidden cross-layer dependencies defined in architecture.json.">يكشف انتهاكات الاعتماد بين الطبقات وفق قواعد architecture.json.</p></div>
+            <div class="m-item" data-cat="rel"><div class="m-top"><span class="m-num">#14</span><span class="m-target" data-ar="المستهدف = 0" data-en="Target = 0">المستهدف = 0</span></div><h3 data-ar="الثغرات الأمنية (Security)" data-en="Security Issues Count (high)">الثغرات الأمنية (Security)</h3><p data-ar="يرصد حقن SQL، eval، التشفير الضعيف، تعطيل TLS، والمفاتيح المكشوفة." data-en="Scans for SQL injection, eval/shell exec, weak hashes, disabled TLS, and secrets.">يرصد حقن SQL، eval، التشفير الضعيف، تعطيل TLS، والمفاتيح المكشوفة.</p></div>
+            <div class="m-item" data-cat="rel"><div class="m-top"><span class="m-num">#15</span><span class="m-target" data-ar="المستهدف ≥ 80%" data-en="Target ≥ 80%">المستهدف ≥ 80%</span></div><h3 data-ar="تغطية الاختبارات (Coverage)" data-en="Test Coverage (%)">تغطية الاختبارات (Coverage)</h3><p data-ar="يقرأ تلقائياً تقارير JaCoCo و lcov و Cobertura دون تنفيذ أي كود خطر." data-en="Auto-reads existing JaCoCo, lcov, and Cobertura coverage reports safely.">يقرأ تلقائياً تقارير JaCoCo و lcov و Cobertura دون تنفيذ أي كود خطر.</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="section alt" id="usage">
+    <div class="container">
+        <div class="sec-head">
+            <span class="sec-tag" data-ar="دليل سريع" data-en="Quick Start">دليل سريع</span>
+            <h2 data-ar="كيف تستخدم OODM في مشروعك؟" data-en="How to Use OODM">كيف تستخدم OODM في مشروعك؟</h2>
+            <p data-ar="افتح الطرفية (Terminal) داخل مجلد مشروعك ونفذ أمراً واحداً فقط." data-en="Open your terminal inside any project folder and run a single command.">افتح الطرفية (Terminal) داخل مجلد مشروعك ونفذ أمراً واحداً فقط.</p>
+        </div>
+
+        <div class="usage-wrap">
+            <div class="u-tabs">
+                <button class="u-tab active" onclick="setUsageTab(0)" data-ar="1. الفحص السريع" data-en="1. Basic Scan">1. الفحص السريع</button>
+                <button class="u-tab" onclick="setUsageTab(1)" data-ar="2. صيغ التصدير" data-en="2. Export Formats">2. صيغ التصدير</button>
+                <button class="u-tab" onclick="setUsageTab(2)" data-ar="3. مخططات UML والمعمارية" data-en="3. UML & Architecture">3. مخططات UML والمعمارية</button>
+                <button class="u-tab" onclick="setUsageTab(3)" data-ar="4. المقارنة المرجعية (Baseline)" data-en="4. Baseline Tracking">4. المقارنة المرجعية (Baseline)</button>
+            </div>
+
+            <div class="u-panel active" id="up-0">
+                <p data-ar="يفحص المجلد الحالي ويولّد ملف التقرير التفاعلي oodm-report.html تلقائياً:" data-en="Scans the current directory and generates an interactive oodm-report.html dashboard:">يفحص المجلد الحالي ويولّد ملف التقرير التفاعلي oodm-report.html تلقائياً:</p>
+                <div class="code-block">
+                    <button class="c-copy" onclick="copyText('npx oodm-cli@latest')" data-ar="نسخ" data-en="Copy">نسخ</button>
+                    <pre style="margin:0"><span class="t-dim"># Scan current project folder</span>
+npx oodm-cli@latest
+
+<span class="t-dim"># Scan a specific project path</span>
+npx oodm-cli@latest ./path/to/project
+
+<span class="t-dim"># Skip missing documentation warnings</span>
+npx oodm-cli@latest --no-docstring-check</pre>
+                </div>
+            </div>
+
+            <div class="u-panel" id="up-1">
+                <p data-ar="اختر الصيغة الأنسب لسير عملك (جدول طرفية، HTML، JSON، Markdown، أو CSV):" data-en="Export results in the format that fits your workflow or CI pipeline:">اختر الصيغة الأنسب لسير عملك (جدول طرفية، HTML، JSON، Markdown، أو CSV):</p>
+                <div class="code-block">
+                    <button class="c-copy" onclick="copyText('npx oodm-cli@latest --format table --details')" data-ar="نسخ" data-en="Copy">نسخ</button>
+                    <pre style="margin:0"><span class="t-dim"># Print summary table + worst offenders in terminal</span>
+npx oodm-cli@latest --format table --details
+
+<span class="t-dim"># Save HTML dashboard to a custom path</span>
+npx oodm-cli@latest --format html --out quality-report.html
+
+<span class="t-dim"># Export machine-readable JSON or Markdown</span>
+npx oodm-cli@latest --format json --out report.json
+npx oodm-cli@latest --format md --out QUALITY.md</pre>
+                </div>
+            </div>
+
+            <div class="u-panel" id="up-2">
+                <p data-ar="تكتشف الأداة الملفات تلقائياً في الجذر أو مجلد ./docs، أو يمكنك تمريرها يدوياً:" data-en="Auto-detected in project root or ./docs, or passed explicitly via flags:">تكتشف الأداة الملفات تلقائياً في الجذر أو مجلد ./docs، أو يمكنك تمريرها يدوياً:</p>
+                <div class="code-block">
+                    <button class="c-copy" onclick="copyText('npx oodm-cli@latest --class-diagram docs/class.puml --sequence docs/seq.puml --arch architecture.json')" data-ar="نسخ" data-en="Copy">نسخ</button>
+                    <pre style="margin:0">npx oodm-cli@latest \
+  --class-diagram docs/class.puml \
+  --sequence docs/seq.puml \
+  --usecases docs/usecases.txt \
+  --arch architecture.json \
+  --coverage-report coverage/lcov.info</pre>
+                </div>
+            </div>
+
+            <div class="u-panel" id="up-3">
+                <p data-ar="احفظ نسخة JSON مرجعية لإصدار سابق لقياس تحسن مؤشر Reuse Index مع تطور مشروعك:" data-en="Save a JSON snapshot to normalize and track Reuse Index improvements across releases:">احفظ نسخة JSON مرجعية لإصدار سابق لقياس تحسن مؤشر Reuse Index مع تطور مشروعك:</p>
+                <div class="code-block">
+                    <button class="c-copy" onclick="copyText('npx oodm-cli@latest --baseline baseline.json')" data-ar="نسخ" data-en="Copy">نسخ</button>
+                    <pre style="margin:0"><span class="t-dim"># Step 1: Save baseline snapshot</span>
+npx oodm-cli@latest --format json --out baseline.json
+
+<span class="t-dim"># Step 2: Compare after refactoring</span>
+npx oodm-cli@latest --baseline baseline.json</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section">
+    <div class="cta-box">
+        <h2 data-ar="جاهز لاكتشاف جودة تصميم مشروعك؟" data-en="Ready to inspect your codebase quality?">جاهز لاكتشاف جودة تصميم مشروعك؟</h2>
+        <p data-ar="أداة مجانية ومفتوحة المصدر بالكامل تحت رخصة MIT. ساهم في تطويرها أو ادعمها بنجمة على GitHub!" data-en="100% free and open source under the MIT License. Try it in seconds or star the repository on GitHub!">أداة مجانية ومفتوحة المصدر بالكامل تحت رخصة MIT. ساهم في تطويرها أو ادعمها بنجمة على GitHub!</p>
+        <div class="cta-btns">
+            <button class="copy-btn" style="padding:12px 24px;font-size:14.5px;border-radius:12px" onclick="copyText('npx oodm-cli@latest')" data-ar="نسخ أمر التشغيل" data-en="Copy npx Command">نسخ أمر التشغيل</button>
+            <a class="btn-light" href="https://github.com/braabormo/oodm-cli" target="_blank" rel="noopener noreferrer" data-ar="★ ادعم المشروع على GitHub" data-en="★ Star on GitHub">★ ادعم المشروع على GitHub</a>
+        </div>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <span data-ar="OODM CLI · مشروع مفتوح المصدر برخصة MIT — طُوّر بواسطة Braa" data-en="OODM CLI · Open Source (MIT License) — Built by Braa">OODM CLI · مشروع مفتوح المصدر برخصة MIT — طُوّر بواسطة Braa</span>
+        <div class="footer-links">
+            <a href="https://github.com/braabormo/oodm-cli" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://www.npmjs.com/package/oodm-cli" target="_blank" rel="noopener noreferrer">npm</a>
+            <a href="https://github.com/braabormo/oodm-cli/issues" target="_blank" rel="noopener noreferrer" data-ar="الإبلاغ عن مشكلة" data-en="Report Issue">الإبلاغ عن مشكلة</a>
+        </div>
+    </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    let currentLang = 'ar';
+
+    function setLang(lang) {
+        currentLang = lang;
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.title = lang === 'ar'
+            ? 'OODM · قِس 16 معياراً لجودة الكود والتصميم بأمر واحد'
+            : 'OODM · Measure 16 OO Design & Code Quality Metrics in One Command';
+        document.querySelectorAll('[data-ar]').forEach((el) => {
+            el.textContent = el.dataset[lang];
+        });
+        document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
+        document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    }
+
+    function filterMetrics(cat) {
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.cat === cat));
+        document.querySelectorAll('#metrics-list .m-item').forEach((item) => {
+            item.classList.toggle('hidden', cat !== 'all' && item.dataset.cat !== cat);
+        });
+    }
+
+    function setUsageTab(idx) {
+        document.querySelectorAll('.u-tab').forEach((b, i) => b.classList.toggle('active', i === idx));
+        document.querySelectorAll('.u-panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const toast = document.getElementById('toast');
+            toast.textContent = currentLang === 'ar' ? 'تم النسخ: ' + text : 'Copied: ' + text;
+            toast.classList.add('show');
+            clearTimeout(window._t);
+            window._t = setTimeout(() => toast.classList.remove('show'), 2200);
+        });
+    }
+</script>
+</body>
+</html>
